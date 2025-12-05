@@ -499,172 +499,191 @@ organelleGroups['Centrioles'] = {
 };
 
 // ============================================
-// ROUGH ER (Procedural Curved Cisternae Sheets)
+// ROUGH ER (Convoluted Folded Tubular Network)
 // ============================================
 const rerGroup = new THREE.Group();
 
-// RER Material - translucent teal
+// RER Material - translucent teal with ribosome-like texture
 const rerMaterial = new THREE.MeshPhysicalMaterial({
   color: COLORS.RER,
-  roughness: 0.3,
-  metalness: 0.1,
+  roughness: 0.4,
+  metalness: 0.05,
   side: THREE.DoubleSide,
   transparent: true,
-  opacity: 0.6,
-  transmission: 0.2,
-  emissive: 0x003333,
-  emissiveIntensity: 0.15
+  opacity: 0.7,
+  emissive: 0x115555,
+  emissiveIntensity: 0.2
 });
 
-// Create a curved cisterna sheet (like a wavy pancake)
-function createCisternaSheet(width, height, curvature, waveFreq, waveAmp) {
-  const segW = 32;
-  const segH = 24;
-  const geometry = new THREE.PlaneGeometry(width, height, segW, segH);
+// Cell boundary check (ovoid shape: stretched in X)
+function isInsideCell(x, y, z, margin = 0.5) {
+  // Cell is scaled 1.5x in X, radius 7
+  const cellRadiusX = 6.5 - margin; // Slightly inside membrane
+  const cellRadiusYZ = 6.5 - margin;
+  const normalized = (x * x) / (cellRadiusX * cellRadiusX) +
+                     (y * y) / (cellRadiusYZ * cellRadiusYZ) +
+                     (z * z) / (cellRadiusYZ * cellRadiusYZ);
+  return normalized < 1;
+}
+
+// Avoid nucleus region
+function avoidsNucleus(x, y, z, margin = 0.8) {
+  const nucX = DIMENSIONS.NUCLEUS_OFFSET.x;
+  const nucR = DIMENSIONS.NUCLEUS_RADIUS + margin;
+  const dist = Math.sqrt((x - nucX) * (x - nucX) + y * y + z * z);
+  return dist > nucR;
+}
+
+// Create a convoluted folded torus (like intestines/brain folds)
+function createConvolutedTorus(majorRadius, minorRadius, folds, amplitude) {
+  const tubularSegments = 80;
+  const radialSegments = 12;
+
+  // Create custom torus with folds
+  const geometry = new THREE.TorusGeometry(majorRadius, minorRadius, radialSegments, tubularSegments);
   const positions = geometry.attributes.position;
 
   for (let i = 0; i < positions.count; i++) {
     let x = positions.getX(i);
     let y = positions.getY(i);
-    let z = 0;
+    let z = positions.getZ(i);
 
-    // Main curvature - wrap around like a curved sheet
-    const curveAmount = curvature * (1 - Math.pow(x / (width / 2), 2));
-    z += curveAmount;
+    // Get angle around torus
+    const angle = Math.atan2(z, x);
 
-    // Organic waviness
-    z += Math.sin(x * waveFreq + Math.random() * 0.3) * waveAmp;
-    z += Math.sin(y * waveFreq * 1.5) * waveAmp * 0.6;
+    // Add folding/convolutions
+    const foldOffset = Math.sin(angle * folds) * amplitude;
+    const foldOffset2 = Math.cos(angle * folds * 1.5 + 1) * amplitude * 0.5;
 
-    // Edge rolling (reticulon protein effect)
-    const edgeDistX = Math.abs(x) / (width / 2);
-    const edgeDistY = Math.abs(y) / (height / 2);
-    const edgeDist = Math.max(edgeDistX, edgeDistY);
-
-    if (edgeDist > 0.7) {
-      const rollAmount = (edgeDist - 0.7) / 0.3;
-      z += rollAmount * rollAmount * 0.15;
+    // Apply fold as radial displacement
+    const radialDir = Math.sqrt(x * x + z * z);
+    if (radialDir > 0.01) {
+      x += (x / radialDir) * foldOffset;
+      z += (z / radialDir) * foldOffset;
     }
 
-    // Add slight thickness variation
+    // Add vertical waviness
+    y += foldOffset2;
+
+    // Add some noise for organic feel
+    x += (Math.random() - 0.5) * 0.02;
+    y += (Math.random() - 0.5) * 0.02;
     z += (Math.random() - 0.5) * 0.02;
 
-    positions.setZ(i, z);
+    positions.setXYZ(i, x, y, z);
   }
 
   geometry.computeVertexNormals();
   return geometry;
 }
 
-// Generate stacked cisternae in multiple clusters
-const cisternaStacks = [
-  // Main stack - wrapping around nucleus on left side
-  { pos: [-3.5, 0, 0], rot: [0, 0.8, 0], count: 6, spacing: 0.18, width: 3.5, height: 2.5 },
-  // Secondary stack - below
-  { pos: [-4.5, -1.5, 1], rot: [0.3, 1.2, 0.1], count: 4, spacing: 0.15, width: 3, height: 2 },
-  // Upper stack
-  { pos: [-3, 1.5, -0.5], rot: [-0.2, 0.6, 0], count: 5, spacing: 0.16, width: 2.8, height: 2.2 },
-  // Far left (tail)
-  { pos: [-6, 0.3, 0.5], rot: [0.1, 1.0, 0.1], count: 4, spacing: 0.14, width: 2.5, height: 1.8 },
-  // Near nucleus
-  { pos: [-1.5, 0.5, 1.5], rot: [0.2, 0.4, -0.1], count: 3, spacing: 0.15, width: 2, height: 1.5 },
-  // Additional fill stacks
-  { pos: [-5, 1, -1.5], rot: [-0.3, 1.4, 0.2], count: 4, spacing: 0.14, width: 2.2, height: 1.6 },
-  { pos: [-4, -0.8, -1], rot: [0.15, 1.1, -0.1], count: 3, spacing: 0.13, width: 2.4, height: 1.7 }
+// Generate RER as convoluted torus layers filling the cell
+const rerTori = [];
+
+// Main RER network - multiple convoluted layers
+const rerLayers = [
+  // Central layers (avoiding nucleus on right side)
+  { pos: [-2.0, 0, 0], radius: 2.5, tube: 0.15, folds: 8, amp: 0.3, rot: [0, 0, 0] },
+  { pos: [-2.0, 0.4, 0], radius: 2.8, tube: 0.12, folds: 10, amp: 0.25, rot: [0.1, 0.2, 0] },
+  { pos: [-2.0, -0.4, 0], radius: 2.3, tube: 0.14, folds: 7, amp: 0.35, rot: [-0.1, -0.1, 0] },
+
+  // Upper region
+  { pos: [-1.5, 2.0, 0], radius: 2.0, tube: 0.12, folds: 9, amp: 0.2, rot: [0.3, 0, 0.1] },
+  { pos: [-2.5, 2.5, 0.5], radius: 1.8, tube: 0.1, folds: 6, amp: 0.25, rot: [0.4, 0.2, 0] },
+
+  // Lower region
+  { pos: [-1.5, -2.0, 0], radius: 2.0, tube: 0.12, folds: 8, amp: 0.22, rot: [-0.3, 0, -0.1] },
+  { pos: [-2.5, -2.5, -0.5], radius: 1.6, tube: 0.11, folds: 7, amp: 0.28, rot: [-0.4, -0.2, 0] },
+
+  // Front/back fill
+  { pos: [-1.0, 0.5, 2.5], radius: 1.5, tube: 0.1, folds: 6, amp: 0.2, rot: [0.5, 0, 0.3] },
+  { pos: [-1.0, -0.5, -2.5], radius: 1.5, tube: 0.1, folds: 6, amp: 0.2, rot: [-0.5, 0, -0.3] },
+  { pos: [-2.0, 1.0, 2.0], radius: 1.3, tube: 0.09, folds: 5, amp: 0.18, rot: [0.3, 0.3, 0.2] },
+  { pos: [-2.0, -1.0, -2.0], radius: 1.3, tube: 0.09, folds: 5, amp: 0.18, rot: [-0.3, -0.3, -0.2] },
+
+  // Outer edges (smaller, more folded)
+  { pos: [-4.0, 0, 1.5], radius: 1.2, tube: 0.08, folds: 8, amp: 0.15, rot: [0.2, 0.8, 0] },
+  { pos: [-4.0, 0, -1.5], radius: 1.2, tube: 0.08, folds: 8, amp: 0.15, rot: [-0.2, -0.8, 0] },
+  { pos: [-4.5, 1.5, 0], radius: 1.0, tube: 0.07, folds: 6, amp: 0.12, rot: [0.5, 0.5, 0.2] },
+  { pos: [-4.5, -1.5, 0], radius: 1.0, tube: 0.07, folds: 6, amp: 0.12, rot: [-0.5, -0.5, -0.2] },
+
+  // Near Golgi (connecting to packaging)
+  { pos: [0.5, 0.5, 1.0], radius: 0.8, tube: 0.06, folds: 5, amp: 0.1, rot: [0.2, 0.5, 0.1] },
+  { pos: [0.5, -0.5, -1.0], radius: 0.8, tube: 0.06, folds: 5, amp: 0.1, rot: [-0.2, -0.5, -0.1] },
 ];
 
-// Create all cisterna sheets
-const allCisternae = [];
-cisternaStacks.forEach((stack, stackIdx) => {
-  for (let i = 0; i < stack.count; i++) {
-    const curvature = 0.2 + Math.random() * 0.1;
-    const waveFreq = 2 + Math.random();
-    const waveAmp = 0.04 + Math.random() * 0.02;
+rerLayers.forEach((layer, idx) => {
+  // Check if center is inside cell and avoids nucleus
+  if (!isInsideCell(layer.pos[0], layer.pos[1], layer.pos[2], 1.0)) return;
+  if (!avoidsNucleus(layer.pos[0], layer.pos[1], layer.pos[2], 1.0)) return;
 
-    const geometry = createCisternaSheet(
-      stack.width * (0.9 + Math.random() * 0.2),
-      stack.height * (0.9 + Math.random() * 0.2),
-      curvature,
-      waveFreq,
-      waveAmp
-    );
+  const geometry = createConvolutedTorus(layer.radius, layer.tube, layer.folds, layer.amp);
+  const torus = new THREE.Mesh(geometry, rerMaterial.clone());
 
-    const cisterna = new THREE.Mesh(geometry, rerMaterial.clone());
+  torus.position.set(layer.pos[0], layer.pos[1], layer.pos[2]);
+  torus.rotation.set(layer.rot[0], layer.rot[1], layer.rot[2]);
 
-    // Position within stack
-    const yOffset = (i - stack.count / 2) * stack.spacing;
-    cisterna.position.set(
-      stack.pos[0] + (Math.random() - 0.5) * 0.1,
-      stack.pos[1] + yOffset,
-      stack.pos[2] + (Math.random() - 0.5) * 0.1
-    );
-
-    // Apply stack rotation with slight variation
-    cisterna.rotation.set(
-      stack.rot[0] + (Math.random() - 0.5) * 0.1,
-      stack.rot[1] + (Math.random() - 0.5) * 0.1,
-      stack.rot[2] + (Math.random() - 0.5) * 0.05
-    );
-
-    cisterna.userData = { organelle: 'RER' };
-    clickableMeshes.push(cisterna);
-    rerGroup.add(cisterna);
-    allCisternae.push(cisterna);
-  }
+  torus.userData = { organelle: 'RER' };
+  clickableMeshes.push(torus);
+  rerGroup.add(torus);
+  rerTori.push(torus);
 });
 
 // ============================================
-// INSTANCED RIBOSOMES ON RER
+// INSTANCED RIBOSOMES ON RER (studded appearance)
 // ============================================
-const ribosomeCount = 1200;
-const ribosomeGeom = new THREE.SphereGeometry(0.04, 6, 6);
-const ribosomeMat = new THREE.MeshStandardMaterial({
-  color: 0x2288aa,
-  roughness: 0.6,
-  emissive: 0x114455,
-  emissiveIntensity: 0.2
+const rerRibosomeCount = 2000;
+const rerRibosomeGeom = new THREE.SphereGeometry(0.04, 6, 6);
+const rerRibosomeMat = new THREE.MeshStandardMaterial({
+  color: 0x2299aa,
+  roughness: 0.5,
+  emissive: 0x115566,
+  emissiveIntensity: 0.3
 });
 
-const ribosomeInstances = new THREE.InstancedMesh(ribosomeGeom, ribosomeMat, ribosomeCount);
+const rerRibosomeInstances = new THREE.InstancedMesh(rerRibosomeGeom, rerRibosomeMat, rerRibosomeCount);
 const riboDummy = new THREE.Object3D();
 
 let riboIdx = 0;
-allCisternae.forEach((cisterna) => {
-  // Get world matrix for this cisterna
-  cisterna.updateMatrixWorld();
-  const cisternaMatrix = cisterna.matrixWorld;
+rerTori.forEach((torus) => {
+  torus.updateMatrixWorld();
+  const torusMatrix = torus.matrixWorld;
 
-  // Scatter ribosomes on this sheet
-  const ribosPerSheet = Math.floor(ribosomeCount / allCisternae.length);
-  const positions = cisterna.geometry.attributes.position;
+  const ribosPerTorus = Math.floor(rerRibosomeCount / rerTori.length);
+  const positions = torus.geometry.attributes.position;
 
-  for (let r = 0; r < ribosPerSheet && riboIdx < ribosomeCount; r++) {
-    // Pick a random vertex region
+  for (let r = 0; r < ribosPerTorus && riboIdx < rerRibosomeCount; r++) {
     const vertIdx = Math.floor(Math.random() * positions.count);
     const localPos = new THREE.Vector3(
-      positions.getX(vertIdx) + (Math.random() - 0.5) * 0.3,
-      positions.getY(vertIdx) + (Math.random() - 0.5) * 0.3,
-      positions.getZ(vertIdx) + (Math.random() > 0.5 ? 0.05 : -0.05) // Both sides
+      positions.getX(vertIdx),
+      positions.getY(vertIdx),
+      positions.getZ(vertIdx)
     );
 
-    // Transform to world space
-    localPos.applyMatrix4(cisternaMatrix);
+    // Offset slightly outward from surface
+    localPos.normalize().multiplyScalar(localPos.length() + 0.05);
 
-    riboDummy.position.copy(localPos);
-    riboDummy.scale.setScalar(0.8 + Math.random() * 0.4);
-    riboDummy.updateMatrix();
-    ribosomeInstances.setMatrixAt(riboIdx, riboDummy.matrix);
-    riboIdx++;
+    // Transform to world space
+    const worldPos = localPos.clone().applyMatrix4(torusMatrix);
+
+    // Only place if inside cell
+    if (isInsideCell(worldPos.x, worldPos.y, worldPos.z, 0.3)) {
+      riboDummy.position.copy(worldPos);
+      riboDummy.scale.setScalar(0.7 + Math.random() * 0.6);
+      riboDummy.updateMatrix();
+      rerRibosomeInstances.setMatrixAt(riboIdx, riboDummy.matrix);
+      riboIdx++;
+    }
   }
 });
 
-ribosomeInstances.instanceMatrix.needsUpdate = true;
-ribosomeInstances.userData = { organelle: 'RER' };
-clickableMeshes.push(ribosomeInstances);
-rerGroup.add(ribosomeInstances);
+rerRibosomeInstances.instanceMatrix.needsUpdate = true;
+rerRibosomeInstances.userData = { organelle: 'RER' };
+clickableMeshes.push(rerRibosomeInstances);
+rerGroup.add(rerRibosomeInstances);
 
 // ============================================
-// ER TUBULES (connecting network)
+// ER CONNECTING TUBULES (winding paths between tori)
 // ============================================
 const tubuleMat = new THREE.MeshPhysicalMaterial({
   color: 0x55ddcc,
@@ -672,38 +691,41 @@ const tubuleMat = new THREE.MeshPhysicalMaterial({
   transparent: true,
   opacity: 0.5,
   emissive: 0x224444,
-  emissiveIntensity: 0.1
+  emissiveIntensity: 0.15
 });
 
-// Create connecting tubules between stacks
-for (let i = 0; i < 15; i++) {
-  const stack1 = cisternaStacks[Math.floor(Math.random() * cisternaStacks.length)];
-  const stack2 = cisternaStacks[Math.floor(Math.random() * cisternaStacks.length)];
+// Create winding tubules connecting the network
+for (let i = 0; i < 25; i++) {
+  const layer1 = rerLayers[Math.floor(Math.random() * rerLayers.length)];
+  const layer2 = rerLayers[Math.floor(Math.random() * rerLayers.length)];
 
-  if (stack1 === stack2) continue;
+  if (layer1 === layer2) continue;
 
-  const start = new THREE.Vector3(...stack1.pos);
-  const end = new THREE.Vector3(...stack2.pos);
+  const start = new THREE.Vector3(
+    layer1.pos[0] + (Math.random() - 0.5) * layer1.radius,
+    layer1.pos[1] + (Math.random() - 0.5) * 0.5,
+    layer1.pos[2] + (Math.random() - 0.5) * layer1.radius
+  );
+  const end = new THREE.Vector3(
+    layer2.pos[0] + (Math.random() - 0.5) * layer2.radius,
+    layer2.pos[1] + (Math.random() - 0.5) * 0.5,
+    layer2.pos[2] + (Math.random() - 0.5) * layer2.radius
+  );
 
-  // Add some randomness
-  start.add(new THREE.Vector3(
-    (Math.random() - 0.5) * 1,
-    (Math.random() - 0.5) * 0.8,
-    (Math.random() - 0.5) * 1
-  ));
-  end.add(new THREE.Vector3(
-    (Math.random() - 0.5) * 1,
-    (Math.random() - 0.5) * 0.8,
-    (Math.random() - 0.5) * 1
-  ));
+  // Check bounds
+  if (!isInsideCell(start.x, start.y, start.z, 0.5)) continue;
+  if (!isInsideCell(end.x, end.y, end.z, 0.5)) continue;
 
-  // Create curved path
-  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-  mid.y += (Math.random() - 0.5) * 0.5;
-  mid.z += (Math.random() - 0.5) * 0.5;
+  // Create winding path with multiple control points
+  const mid1 = new THREE.Vector3().lerpVectors(start, end, 0.33);
+  const mid2 = new THREE.Vector3().lerpVectors(start, end, 0.66);
+  mid1.y += (Math.random() - 0.5) * 1.0;
+  mid1.z += (Math.random() - 0.5) * 0.8;
+  mid2.y += (Math.random() - 0.5) * 1.0;
+  mid2.z += (Math.random() - 0.5) * 0.8;
 
-  const curve = new THREE.CatmullRomCurve3([start, mid, end]);
-  const tubeGeom = new THREE.TubeGeometry(curve, 12, 0.06, 8, false);
+  const curve = new THREE.CatmullRomCurve3([start, mid1, mid2, end]);
+  const tubeGeom = new THREE.TubeGeometry(curve, 16, 0.04, 6, false);
   const tubule = new THREE.Mesh(tubeGeom, tubuleMat);
   tubule.userData = { organelle: 'RER' };
   rerGroup.add(tubule);
@@ -713,11 +735,11 @@ cellGroup.add(rerGroup);
 organelleGroups['RER'] = {
   group: rerGroup,
   meshes: rerGroup.children,
-  labelOffset: new THREE.Vector3(-5, 5, 0)
+  labelOffset: new THREE.Vector3(-3, 3, 0)
 };
 
 // ============================================
-// MITOCHONDRIA (with Cristae)
+// MITOCHONDRIA (with Cristae) - Constrained inside cell
 // ============================================
 const mitochondriaGroup = new THREE.Group();
 const mitoCount = 35;
@@ -730,13 +752,6 @@ const mitoOuterMat = new THREE.MeshPhysicalMaterial({
   clearcoat: 0.3
 });
 
-const mitoInnerMat = new THREE.MeshStandardMaterial({
-  color: 0xff8866,
-  roughness: 0.5,
-  emissive: 0x331100,
-  emissiveIntensity: 0.3
-});
-
 // Use instancing for performance
 const mitoGeom = new THREE.CapsuleGeometry(0.2, 0.8, 4, 8);
 const mitoInstancedMesh = new THREE.InstancedMesh(mitoGeom, mitoOuterMat, mitoCount);
@@ -744,17 +759,20 @@ mitoInstancedMesh.userData = { organelle: 'Mitochondria' };
 clickableMeshes.push(mitoInstancedMesh);
 
 const dummy = new THREE.Object3D();
-for (let i = 0; i < mitoCount; i++) {
-  const x = (Math.random() - 0.7) * 12;
-  const y = (Math.random() - 0.5) * 6;
-  const z = (Math.random() - 0.5) * 6;
+let mitoIdx = 0;
+for (let attempts = 0; attempts < mitoCount * 3 && mitoIdx < mitoCount; attempts++) {
+  const x = (Math.random() - 0.5) * 10;
+  const y = (Math.random() - 0.5) * 10;
+  const z = (Math.random() - 0.5) * 10;
 
-  if (Math.sqrt(y * y + z * z) < 6) {
+  // Must be inside cell and avoid nucleus
+  if (isInsideCell(x, y, z, 1.0) && avoidsNucleus(x, y, z, 0.5)) {
     dummy.position.set(x, y, z);
     dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
     dummy.scale.setScalar(0.8 + Math.random() * 0.4);
     dummy.updateMatrix();
-    mitoInstancedMesh.setMatrixAt(i, dummy.matrix);
+    mitoInstancedMesh.setMatrixAt(mitoIdx, dummy.matrix);
+    mitoIdx++;
   }
 }
 mitoInstancedMesh.instanceMatrix.needsUpdate = true;
@@ -764,11 +782,11 @@ cellGroup.add(mitochondriaGroup);
 organelleGroups['Mitochondria'] = {
   group: mitochondriaGroup,
   meshes: [mitoInstancedMesh],
-  labelOffset: new THREE.Vector3(-4, -3, 3)
+  labelOffset: new THREE.Vector3(-3, -2, 2)
 };
 
 // ============================================
-// LYSOSOMES
+// LYSOSOMES - Constrained inside cell
 // ============================================
 const lysosomesGroup = new THREE.Group();
 const lysoCount = 15;
@@ -785,14 +803,18 @@ const lysoInstancedMesh = new THREE.InstancedMesh(lysoGeom, lysoMat, lysoCount);
 lysoInstancedMesh.userData = { organelle: 'Lysosomes' };
 clickableMeshes.push(lysoInstancedMesh);
 
-for (let i = 0; i < lysoCount; i++) {
-  dummy.position.set(
-    (Math.random() - 0.5) * 10,
-    (Math.random() - 0.5) * 6,
-    (Math.random() - 0.5) * 6
-  );
-  dummy.updateMatrix();
-  lysoInstancedMesh.setMatrixAt(i, dummy.matrix);
+let lysoIdx = 0;
+for (let attempts = 0; attempts < lysoCount * 3 && lysoIdx < lysoCount; attempts++) {
+  const x = (Math.random() - 0.5) * 10;
+  const y = (Math.random() - 0.5) * 10;
+  const z = (Math.random() - 0.5) * 10;
+
+  if (isInsideCell(x, y, z, 1.0) && avoidsNucleus(x, y, z, 0.5)) {
+    dummy.position.set(x, y, z);
+    dummy.updateMatrix();
+    lysoInstancedMesh.setMatrixAt(lysoIdx, dummy.matrix);
+    lysoIdx++;
+  }
 }
 lysoInstancedMesh.instanceMatrix.needsUpdate = true;
 lysosomesGroup.add(lysoInstancedMesh);
@@ -801,11 +823,11 @@ cellGroup.add(lysosomesGroup);
 organelleGroups['Lysosomes'] = {
   group: lysosomesGroup,
   meshes: [lysoInstancedMesh],
-  labelOffset: new THREE.Vector3(-3, 2, 4)
+  labelOffset: new THREE.Vector3(-2, 2, 3)
 };
 
 // ============================================
-// FREE RIBOSOMES
+// FREE RIBOSOMES - Constrained inside cell
 // ============================================
 const ribosomesGroup = new THREE.Group();
 const riboCount = 400;
@@ -822,18 +844,13 @@ freeRiboInstancedMesh.userData = { organelle: 'Ribosomes' };
 clickableMeshes.push(freeRiboInstancedMesh);
 
 let freeRiboIdx = 0;
-for (let i = 0; i < riboCount * 1.5 && freeRiboIdx < riboCount; i++) {
-  const x = (Math.random() - 0.5) * 14;
-  const y = (Math.random() - 0.5) * 8;
-  const z = (Math.random() - 0.5) * 8;
+for (let i = 0; i < riboCount * 2 && freeRiboIdx < riboCount; i++) {
+  const x = (Math.random() - 0.5) * 12;
+  const y = (Math.random() - 0.5) * 10;
+  const z = (Math.random() - 0.5) * 10;
 
-  const distToNuc = Math.sqrt(
-    Math.pow(x - DIMENSIONS.NUCLEUS_OFFSET.x, 2) +
-    Math.pow(y - DIMENSIONS.NUCLEUS_OFFSET.y, 2) +
-    Math.pow(z - DIMENSIONS.NUCLEUS_OFFSET.z, 2)
-  );
-
-  if (distToNuc > DIMENSIONS.NUCLEUS_RADIUS + 0.5) {
+  // Must be inside cell and avoid nucleus
+  if (isInsideCell(x, y, z, 0.5) && avoidsNucleus(x, y, z, 0.5)) {
     dummy.position.set(x, y, z);
     dummy.updateMatrix();
     freeRiboInstancedMesh.setMatrixAt(freeRiboIdx, dummy.matrix);
