@@ -816,13 +816,13 @@ const riboMat = new THREE.MeshBasicMaterial({
   opacity: 0.6
 });
 
-const riboGeom = new THREE.DodecahedronGeometry(0.05, 0);
-const riboInstancedMesh = new THREE.InstancedMesh(riboGeom, riboMat, riboCount);
-riboInstancedMesh.userData = { organelle: 'Ribosomes' };
-clickableMeshes.push(riboInstancedMesh);
+const freeRiboGeom = new THREE.DodecahedronGeometry(0.05, 0);
+const freeRiboInstancedMesh = new THREE.InstancedMesh(freeRiboGeom, riboMat, riboCount);
+freeRiboInstancedMesh.userData = { organelle: 'Ribosomes' };
+clickableMeshes.push(freeRiboInstancedMesh);
 
-let riboIdx = 0;
-for (let i = 0; i < riboCount * 1.5 && riboIdx < riboCount; i++) {
+let freeRiboIdx = 0;
+for (let i = 0; i < riboCount * 1.5 && freeRiboIdx < riboCount; i++) {
   const x = (Math.random() - 0.5) * 14;
   const y = (Math.random() - 0.5) * 8;
   const z = (Math.random() - 0.5) * 8;
@@ -836,17 +836,17 @@ for (let i = 0; i < riboCount * 1.5 && riboIdx < riboCount; i++) {
   if (distToNuc > DIMENSIONS.NUCLEUS_RADIUS + 0.5) {
     dummy.position.set(x, y, z);
     dummy.updateMatrix();
-    riboInstancedMesh.setMatrixAt(riboIdx, dummy.matrix);
-    riboIdx++;
+    freeRiboInstancedMesh.setMatrixAt(freeRiboIdx, dummy.matrix);
+    freeRiboIdx++;
   }
 }
-riboInstancedMesh.instanceMatrix.needsUpdate = true;
-ribosomesGroup.add(riboInstancedMesh);
+freeRiboInstancedMesh.instanceMatrix.needsUpdate = true;
+ribosomesGroup.add(freeRiboInstancedMesh);
 
 cellGroup.add(ribosomesGroup);
 organelleGroups['Ribosomes'] = {
   group: ribosomesGroup,
-  meshes: [riboInstancedMesh],
+  meshes: [freeRiboInstancedMesh],
   labelOffset: new THREE.Vector3(0, -5, 0)
 };
 
