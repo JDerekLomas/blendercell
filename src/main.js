@@ -761,12 +761,12 @@ Object.entries(INFO_CONTENT).forEach(([key, data]) => {
   if (key === 'Cell') return;
 
   const card = document.createElement('div');
-  card.className = 'bg-gray-800 bg-opacity-50 p-5 rounded-lg border border-gray-700 hover:border-teal-500 hover:border-opacity-50 transition-colors';
+  card.className = 'bg-slate-800/50 p-5 rounded-lg border border-slate-700 hover:border-teal-500/50 transition-colors';
   card.innerHTML = `
     <h4 class="text-lg font-bold text-teal-200 mb-2">${data.title}</h4>
-    <p class="text-sm text-gray-400 mb-3 leading-relaxed">${data.description}</p>
+    <p class="text-sm text-slate-400 mb-3 leading-relaxed">${data.description}</p>
     <div class="text-xs font-semibold text-teal-500 uppercase tracking-wide">
-      Role: <span class="text-gray-300 normal-case">${data.function}</span>
+      Role: <span class="text-slate-300 normal-case">${data.function}</span>
     </div>
   `;
   organelleGrid.appendChild(card);
@@ -815,8 +815,9 @@ zoomOutBtn.addEventListener('click', () => {
 function setActiveFeature(feature) {
   activeFeature = feature;
 
-  // Update reset button visibility
+  // Update reset button visibility and clickability
   resetBtn.style.opacity = feature ? '1' : '0';
+  resetBtn.style.pointerEvents = feature ? 'auto' : 'none';
 
   // Update hint visibility
   hintContainer.style.opacity = feature ? '0' : '1';
