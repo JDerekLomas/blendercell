@@ -103,26 +103,27 @@ const SECRETION_PATHS = Array.from({ length: 8 }).map((_, i) => {
 // ============================================
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050510);
+scene.background = new THREE.Color(0x0f172a); // Slate 900
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(15, 8, 18);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 8, 35);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.2;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
-controls.minDistance = 8;
-controls.maxDistance = 40;
+controls.minDistance = 12;
+controls.maxDistance = 50;
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.3;
+controls.autoRotateSpeed = 0.5;
+controls.enablePan = false;
 
 // Raycaster for click detection
 const raycaster = new THREE.Raycaster();
@@ -136,26 +137,131 @@ const organelleGroups = {};
 const clickableMeshes = [];
 
 // ============================================
+// BACKGROUND STARS (Atmosphere)
+// ============================================
+function createStarField() {
+  const starCount = 5000;
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+  const sizes = new Float32Array(starCount);
+
+  for (let i = 0; i < starCount; i++) {
+    // Distribute in a sphere shell far from camera
+    const radius = 80 + Math.random() * 40;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = radius * Math.cos(phi);
+
+    // Subtle color variation (white to light blue)
+    const brightness = 0.5 + Math.random() * 0.5;
+    colors[i * 3] = brightness;
+    colors[i * 3 + 1] = brightness;
+    colors[i * 3 + 2] = brightness + Math.random() * 0.2;
+
+    sizes[i] = Math.random() * 2 + 0.5;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.5,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.8,
+    sizeAttenuation: true
+  });
+
+  return new THREE.Points(geometry, material);
+}
+
+const stars = createStarField();
+scene.add(stars);
+
+// ============================================
+// FLOATING CYTOPLASM PARTICLES
+// ============================================
+function createCytoplasmParticles() {
+  const particleCount = 800;
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = [];
+
+  for (let i = 0; i < particleCount; i++) {
+    // Distribute inside an ovoid volume matching the cell
+    const r = Math.random() * 9;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta) * 1.5; // Ovoid stretch
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+
+    velocities.push({
+      x: (Math.random() - 0.5) * 0.01,
+      y: (Math.random() - 0.5) * 0.01,
+      z: (Math.random() - 0.5) * 0.01
+    });
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.08,
+    color: 0x88ccaa,
+    transparent: true,
+    opacity: 0.4,
+    sizeAttenuation: true
+  });
+
+  const particles = new THREE.Points(geometry, material);
+  particles.userData.velocities = velocities;
+
+  return particles;
+}
+
+const cytoplasmParticles = createCytoplasmParticles();
+scene.add(cytoplasmParticles);
+
+// ============================================
+// FOG FOR DEPTH
+// ============================================
+scene.fog = new THREE.FogExp2(0x0f172a, 0.008);
+
+// ============================================
 // LIGHTING
 // ============================================
-const ambientLight = new THREE.AmbientLight(0x404060, 0.4);
+const ambientLight = new THREE.AmbientLight(0x8899aa, 0.5);
 scene.add(ambientLight);
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
-keyLight.position.set(10, 15, 10);
+// Key light - warm from above-front
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+keyLight.position.set(10, 20, 15);
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight(0x4488ff, 0.6);
-fillLight.position.set(-15, 5, 0);
+// Fill light - cool from left
+const fillLight = new THREE.DirectionalLight(0x6688cc, 0.5);
+fillLight.position.set(-20, 5, 0);
 scene.add(fillLight);
 
-const rimLight = new THREE.DirectionalLight(0xff6644, 0.4);
-rimLight.position.set(0, 0, -15);
+// Rim light - warm accent from behind
+const rimLight = new THREE.DirectionalLight(0xffaa66, 0.3);
+rimLight.position.set(0, -5, -20);
 scene.add(rimLight);
 
-const innerLight = new THREE.PointLight(0x88ffaa, 0.5, 15);
+// Interior glow
+const innerLight = new THREE.PointLight(0x66ddaa, 0.6, 20);
 innerLight.position.set(0, 0, 0);
 scene.add(innerLight);
+
+// Subtle hemisphere light for natural feel
+const hemiLight = new THREE.HemisphereLight(0xaaddff, 0x445566, 0.4);
+scene.add(hemiLight);
 
 // ============================================
 // MAIN CELL GROUP (Ovoid Shape)
@@ -393,84 +499,215 @@ organelleGroups['Centrioles'] = {
 };
 
 // ============================================
-// ROUGH ER (Curved Cisternae with Ribosomes)
+// ROUGH ER (Procedural Curved Cisternae Sheets)
 // ============================================
 const rerGroup = new THREE.Group();
 
-const rerMaterial = new THREE.MeshStandardMaterial({
+// RER Material - translucent teal
+const rerMaterial = new THREE.MeshPhysicalMaterial({
   color: COLORS.RER,
-  roughness: 0.5,
+  roughness: 0.3,
+  metalness: 0.1,
   side: THREE.DoubleSide,
   transparent: true,
-  opacity: 0.7
+  opacity: 0.6,
+  transmission: 0.2,
+  emissive: 0x003333,
+  emissiveIntensity: 0.15
 });
 
-// Generate RER texture with ribosome bumps
-function createRibosomeTexture() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d');
+// Create a curved cisterna sheet (like a wavy pancake)
+function createCisternaSheet(width, height, curvature, waveFreq, waveAmp) {
+  const segW = 32;
+  const segH = 24;
+  const geometry = new THREE.PlaneGeometry(width, height, segW, segH);
+  const positions = geometry.attributes.position;
 
-  ctx.fillStyle = '#2a8a8a';
-  ctx.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < positions.count; i++) {
+    let x = positions.getX(i);
+    let y = positions.getY(i);
+    let z = 0;
 
-  for (let i = 0; i < 20000; i++) {
-    const x = Math.random() * 512;
-    const y = Math.random() * 512;
-    const r = Math.random() * 2 + 1;
-    ctx.fillStyle = Math.random() > 0.3 ? '#ffffff' : '#000000';
-    ctx.globalAlpha = 0.5;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    // Main curvature - wrap around like a curved sheet
+    const curveAmount = curvature * (1 - Math.pow(x / (width / 2), 2));
+    z += curveAmount;
+
+    // Organic waviness
+    z += Math.sin(x * waveFreq + Math.random() * 0.3) * waveAmp;
+    z += Math.sin(y * waveFreq * 1.5) * waveAmp * 0.6;
+
+    // Edge rolling (reticulon protein effect)
+    const edgeDistX = Math.abs(x) / (width / 2);
+    const edgeDistY = Math.abs(y) / (height / 2);
+    const edgeDist = Math.max(edgeDistX, edgeDistY);
+
+    if (edgeDist > 0.7) {
+      const rollAmount = (edgeDist - 0.7) / 0.3;
+      z += rollAmount * rollAmount * 0.15;
+    }
+
+    // Add slight thickness variation
+    z += (Math.random() - 0.5) * 0.02;
+
+    positions.setZ(i, z);
   }
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(8, 3);
-  return texture;
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
-const ribosomeTexture = createRibosomeTexture();
-const rerMatWithBumps = new THREE.MeshStandardMaterial({
-  color: COLORS.RER,
-  roughness: 0.5,
-  bumpMap: ribosomeTexture,
-  bumpScale: 0.15,
-  side: THREE.DoubleSide,
-  transparent: true,
-  opacity: 0.75
-});
-
-// Create curved torus layers for RER
-const rerLayers = [
-  { radius: 3.5, tube: 0.2, pos: [-2.5, 0, 0], rot: [0, 1.6, 0] },
-  { radius: 4.0, tube: 0.22, pos: [-3.0, 0.3, 0.2], rot: [0.1, 1.5, 0.1] },
-  { radius: 4.5, tube: 0.25, pos: [-3.5, -0.2, -0.3], rot: [-0.1, 1.7, -0.1] },
-  { radius: 5.0, tube: 0.2, pos: [-4.0, 0.1, 0.5], rot: [0.2, 1.4, 0] },
-  { radius: 5.5, tube: 0.25, pos: [-4.5, -0.3, -0.2], rot: [-0.2, 1.8, 0.1] },
-  { radius: 6.0, tube: 0.3, pos: [-2.0, 0, 0], rot: [0, 1.6, 0.2] },
-  { radius: 5.0, tube: 0.25, pos: [-4.0, 0.5, 0], rot: [0.2, 1.4, -0.2] },
-  { radius: 4.5, tube: 0.25, pos: [-5.0, -0.5, 0.5], rot: [-0.2, 1.8, 0.1] },
-  { radius: 5.5, tube: 0.3, pos: [-3.5, 0, 0], rot: [1.5, 0.2, 0] },
-  { radius: 4.0, tube: 0.2, pos: [-6.0, 1.0, -1.0], rot: [1.8, 0.5, 0] },
-  { radius: 3.8, tube: 0.2, pos: [-5.5, -0.8, 0.8], rot: [0.3, 1.3, 0.2] },
-  { radius: 4.2, tube: 0.22, pos: [-4.2, 0.6, -0.6], rot: [-0.3, 1.6, -0.1] }
+// Generate stacked cisternae in multiple clusters
+const cisternaStacks = [
+  // Main stack - wrapping around nucleus on left side
+  { pos: [-3.5, 0, 0], rot: [0, 0.8, 0], count: 6, spacing: 0.18, width: 3.5, height: 2.5 },
+  // Secondary stack - below
+  { pos: [-4.5, -1.5, 1], rot: [0.3, 1.2, 0.1], count: 4, spacing: 0.15, width: 3, height: 2 },
+  // Upper stack
+  { pos: [-3, 1.5, -0.5], rot: [-0.2, 0.6, 0], count: 5, spacing: 0.16, width: 2.8, height: 2.2 },
+  // Far left (tail)
+  { pos: [-6, 0.3, 0.5], rot: [0.1, 1.0, 0.1], count: 4, spacing: 0.14, width: 2.5, height: 1.8 },
+  // Near nucleus
+  { pos: [-1.5, 0.5, 1.5], rot: [0.2, 0.4, -0.1], count: 3, spacing: 0.15, width: 2, height: 1.5 },
+  // Additional fill stacks
+  { pos: [-5, 1, -1.5], rot: [-0.3, 1.4, 0.2], count: 4, spacing: 0.14, width: 2.2, height: 1.6 },
+  { pos: [-4, -0.8, -1], rot: [0.15, 1.1, -0.1], count: 3, spacing: 0.13, width: 2.4, height: 1.7 }
 ];
 
-rerLayers.forEach((layer, i) => {
-  const torus = new THREE.Mesh(
-    new THREE.TorusGeometry(layer.radius, layer.tube, 20, 100, Math.PI * 1.8),
-    rerMatWithBumps.clone()
-  );
-  torus.position.set(...layer.pos);
-  torus.rotation.set(...layer.rot);
-  torus.userData = { organelle: 'RER' };
-  clickableMeshes.push(torus);
-  rerGroup.add(torus);
+// Create all cisterna sheets
+const allCisternae = [];
+cisternaStacks.forEach((stack, stackIdx) => {
+  for (let i = 0; i < stack.count; i++) {
+    const curvature = 0.2 + Math.random() * 0.1;
+    const waveFreq = 2 + Math.random();
+    const waveAmp = 0.04 + Math.random() * 0.02;
+
+    const geometry = createCisternaSheet(
+      stack.width * (0.9 + Math.random() * 0.2),
+      stack.height * (0.9 + Math.random() * 0.2),
+      curvature,
+      waveFreq,
+      waveAmp
+    );
+
+    const cisterna = new THREE.Mesh(geometry, rerMaterial.clone());
+
+    // Position within stack
+    const yOffset = (i - stack.count / 2) * stack.spacing;
+    cisterna.position.set(
+      stack.pos[0] + (Math.random() - 0.5) * 0.1,
+      stack.pos[1] + yOffset,
+      stack.pos[2] + (Math.random() - 0.5) * 0.1
+    );
+
+    // Apply stack rotation with slight variation
+    cisterna.rotation.set(
+      stack.rot[0] + (Math.random() - 0.5) * 0.1,
+      stack.rot[1] + (Math.random() - 0.5) * 0.1,
+      stack.rot[2] + (Math.random() - 0.5) * 0.05
+    );
+
+    cisterna.userData = { organelle: 'RER' };
+    clickableMeshes.push(cisterna);
+    rerGroup.add(cisterna);
+    allCisternae.push(cisterna);
+  }
 });
+
+// ============================================
+// INSTANCED RIBOSOMES ON RER
+// ============================================
+const ribosomeCount = 1200;
+const ribosomeGeom = new THREE.SphereGeometry(0.04, 6, 6);
+const ribosomeMat = new THREE.MeshStandardMaterial({
+  color: 0x2288aa,
+  roughness: 0.6,
+  emissive: 0x114455,
+  emissiveIntensity: 0.2
+});
+
+const ribosomeInstances = new THREE.InstancedMesh(ribosomeGeom, ribosomeMat, ribosomeCount);
+const riboDummy = new THREE.Object3D();
+
+let riboIdx = 0;
+allCisternae.forEach((cisterna) => {
+  // Get world matrix for this cisterna
+  cisterna.updateMatrixWorld();
+  const cisternaMatrix = cisterna.matrixWorld;
+
+  // Scatter ribosomes on this sheet
+  const ribosPerSheet = Math.floor(ribosomeCount / allCisternae.length);
+  const positions = cisterna.geometry.attributes.position;
+
+  for (let r = 0; r < ribosPerSheet && riboIdx < ribosomeCount; r++) {
+    // Pick a random vertex region
+    const vertIdx = Math.floor(Math.random() * positions.count);
+    const localPos = new THREE.Vector3(
+      positions.getX(vertIdx) + (Math.random() - 0.5) * 0.3,
+      positions.getY(vertIdx) + (Math.random() - 0.5) * 0.3,
+      positions.getZ(vertIdx) + (Math.random() > 0.5 ? 0.05 : -0.05) // Both sides
+    );
+
+    // Transform to world space
+    localPos.applyMatrix4(cisternaMatrix);
+
+    riboDummy.position.copy(localPos);
+    riboDummy.scale.setScalar(0.8 + Math.random() * 0.4);
+    riboDummy.updateMatrix();
+    ribosomeInstances.setMatrixAt(riboIdx, riboDummy.matrix);
+    riboIdx++;
+  }
+});
+
+ribosomeInstances.instanceMatrix.needsUpdate = true;
+ribosomeInstances.userData = { organelle: 'RER' };
+clickableMeshes.push(ribosomeInstances);
+rerGroup.add(ribosomeInstances);
+
+// ============================================
+// ER TUBULES (connecting network)
+// ============================================
+const tubuleMat = new THREE.MeshPhysicalMaterial({
+  color: 0x55ddcc,
+  roughness: 0.3,
+  transparent: true,
+  opacity: 0.5,
+  emissive: 0x224444,
+  emissiveIntensity: 0.1
+});
+
+// Create connecting tubules between stacks
+for (let i = 0; i < 15; i++) {
+  const stack1 = cisternaStacks[Math.floor(Math.random() * cisternaStacks.length)];
+  const stack2 = cisternaStacks[Math.floor(Math.random() * cisternaStacks.length)];
+
+  if (stack1 === stack2) continue;
+
+  const start = new THREE.Vector3(...stack1.pos);
+  const end = new THREE.Vector3(...stack2.pos);
+
+  // Add some randomness
+  start.add(new THREE.Vector3(
+    (Math.random() - 0.5) * 1,
+    (Math.random() - 0.5) * 0.8,
+    (Math.random() - 0.5) * 1
+  ));
+  end.add(new THREE.Vector3(
+    (Math.random() - 0.5) * 1,
+    (Math.random() - 0.5) * 0.8,
+    (Math.random() - 0.5) * 1
+  ));
+
+  // Create curved path
+  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  mid.y += (Math.random() - 0.5) * 0.5;
+  mid.z += (Math.random() - 0.5) * 0.5;
+
+  const curve = new THREE.CatmullRomCurve3([start, mid, end]);
+  const tubeGeom = new THREE.TubeGeometry(curve, 12, 0.06, 8, false);
+  const tubule = new THREE.Mesh(tubeGeom, tubuleMat);
+  tubule.userData = { organelle: 'RER' };
+  rerGroup.add(tubule);
+}
 
 cellGroup.add(rerGroup);
 organelleGroups['RER'] = {
@@ -1098,7 +1335,45 @@ function animate() {
   antibodyInstances.instanceMatrix.needsUpdate = true;
 
   // Inner light flicker
-  innerLight.intensity = 0.5 + Math.sin(elapsed * 2) * 0.1;
+  innerLight.intensity = 0.6 + Math.sin(elapsed * 2) * 0.15;
+
+  // Animate stars slow rotation
+  stars.rotation.y = elapsed * 0.02;
+  stars.rotation.x = elapsed * 0.01;
+
+  // Animate cytoplasm particles (Brownian motion)
+  const cytoPositions = cytoplasmParticles.geometry.attributes.position;
+  const velocities = cytoplasmParticles.userData.velocities;
+
+  for (let i = 0; i < velocities.length; i++) {
+    let x = cytoPositions.getX(i);
+    let y = cytoPositions.getY(i);
+    let z = cytoPositions.getZ(i);
+
+    // Apply velocity with slight randomness
+    x += velocities[i].x + (Math.random() - 0.5) * 0.002;
+    y += velocities[i].y + (Math.random() - 0.5) * 0.002;
+    z += velocities[i].z + (Math.random() - 0.5) * 0.002;
+
+    // Keep within ovoid bounds
+    const distSq = (x / 1.5) * (x / 1.5) + y * y + z * z;
+    if (distSq > 64) { // r=8 squared
+      // Bounce back toward center
+      velocities[i].x *= -0.8;
+      velocities[i].y *= -0.8;
+      velocities[i].z *= -0.8;
+    }
+
+    // Occasionally change direction
+    if (Math.random() < 0.001) {
+      velocities[i].x = (Math.random() - 0.5) * 0.01;
+      velocities[i].y = (Math.random() - 0.5) * 0.01;
+      velocities[i].z = (Math.random() - 0.5) * 0.01;
+    }
+
+    cytoPositions.setXYZ(i, x, y, z);
+  }
+  cytoPositions.needsUpdate = true;
 
   // Update label position
   updateLabelPosition();
