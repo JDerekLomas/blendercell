@@ -231,8 +231,8 @@
         <!-- General Intro -->
         <div class="bg-red-900/20 border border-red-500/20 rounded-xl p-6">
           <h3 class="text-xl font-bold text-red-300 mb-2">The Perfect Design</h3>
-          <p class="text-slate-300 leading-relaxed mb-4">The red blood cell is a masterpiece of biological engineering. Its unique biconcave disc shape isn't just for looks - it maximizes surface area for gas exchange while allowing the cell to squeeze through the tiniest capillaries.</p>
-          <p class="text-red-100 font-medium italic">No nucleus, no mitochondria - just pure hemoglobin-packed efficiency.</p>
+          <p class="text-slate-300 leading-relaxed mb-4">The red blood cell is a masterpiece of biological engineering. Its unique biconcave disc shape maximizes surface area for gas exchange (30% more than a sphere!) while allowing the 7.8μm cell to squeeze through capillaries as narrow as 3μm.</p>
+          <p class="text-red-100 font-medium italic">No nucleus, no mitochondria, no ER, no Golgi - just pure hemoglobin-packed efficiency. It can't even use the oxygen it carries!</p>
         </div>
 
         <!-- Stats Grid -->
@@ -246,7 +246,7 @@
             <div class="text-xs text-slate-400 mt-1">Days lifespan</div>
           </div>
           <div class="bg-slate-800/50 rounded-xl p-4 text-center border border-red-500/10">
-            <div class="text-3xl font-bold text-red-400">7μm</div>
+            <div class="text-3xl font-bold text-red-400">7.8μm</div>
             <div class="text-xs text-slate-400 mt-1">Diameter</div>
           </div>
           <div class="bg-slate-800/50 rounded-xl p-4 text-center border border-red-500/10">
@@ -255,51 +255,92 @@
           </div>
         </div>
 
+        <!-- Dimensions -->
+        <div class="bg-slate-800/30 border border-red-500/20 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-white mb-3">Precise Dimensions</h3>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div class="text-2xl font-bold text-red-400">7.8μm</div>
+              <div class="text-xs text-slate-400">Diameter</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-red-400">2.5μm</div>
+              <div class="text-xs text-slate-400">Rim thickness</div>
+            </div>
+            <div>
+              <div class="text-2xl font-bold text-red-400">1.0μm</div>
+              <div class="text-xs text-slate-400">Center thickness</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Components -->
         <div class="space-y-4">
-          <h3 class="text-lg font-bold text-white">Key Components</h3>
+          <h3 class="text-lg font-bold text-white">What You're Seeing</h3>
 
           <div class="bg-slate-800/30 border border-red-500/20 rounded-xl p-5">
-            <h4 class="text-red-300 font-bold mb-2">Hemoglobin</h4>
-            <p class="text-slate-300 text-sm leading-relaxed">The iron-containing protein that gives blood its red color. Each hemoglobin molecule can carry 4 oxygen molecules. When oxygen binds, the cell turns bright red; when it releases oxygen, it becomes darker.</p>
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-red-500"></div>
+              <h4 class="text-red-300 font-bold">Hemoglobin (red particles)</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">270 million molecules per cell, making up 97% of the cell's dry weight. Each tetrameric protein has 4 heme groups with iron atoms that bind oxygen. Watch the color shift from bright scarlet (oxygenated) to dark maroon (deoxygenated).</p>
           </div>
 
           <div class="bg-slate-800/30 border border-red-500/20 rounded-xl p-5">
-            <h4 class="text-red-300 font-bold mb-2">Cell Membrane</h4>
-            <p class="text-slate-300 text-sm leading-relaxed">An incredibly flexible membrane supported by a spectrin network. This allows the 7μm cell to squeeze through 3μm capillaries without breaking.</p>
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-pink-400"></div>
+              <h4 class="text-red-300 font-bold">Spectrin-Actin Network (mesh)</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">~40,000 actin nodes connected by flexible spectrin tetramers form a hexagonal lattice beneath the membrane. This cytoskeleton gives the cell its remarkable elasticity - it can deform through tight capillaries and spring back to shape.</p>
           </div>
 
-          <div class="bg-slate-800/30 border border-red-500/20 rounded-xl p-5">
-            <h4 class="text-red-300 font-bold mb-2">Biconcave Shape</h4>
-            <p class="text-slate-300 text-sm leading-relaxed">The iconic dumbbell-when-viewed-from-the-side shape increases surface area by 20-30% compared to a sphere, enabling faster oxygen exchange.</p>
+          <div class="bg-slate-800/30 border border-blue-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+              <h4 class="text-blue-300 font-bold">Band 3 Proteins (blue cylinders)</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">~1 million copies of this transmembrane protein exchange chloride and bicarbonate ions. They anchor the spectrin network to the membrane and are essential for CO₂ transport.</p>
+          </div>
+
+          <div class="bg-slate-800/30 border border-green-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-green-500"></div>
+              <h4 class="text-green-300 font-bold">Glycophorin (green spheres)</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">Surface glycoproteins rich in sialic acid that give RBCs their negative charge. This prevents cells from sticking together and determines blood type antigens.</p>
           </div>
         </div>
 
         <!-- Journey -->
         <div class="bg-gradient-to-r from-red-900/20 to-slate-800/20 rounded-xl p-6 border border-red-500/20">
-          <h3 class="text-lg font-bold text-red-300 mb-4">The Journey</h3>
+          <h3 class="text-lg font-bold text-red-300 mb-4">The 60-Second Circuit</h3>
           <div class="space-y-3 text-sm">
             <div class="flex items-start gap-3">
-              <div class="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shrink-0">1</div>
-              <p class="text-slate-300"><span class="text-red-300 font-semibold">Lungs:</span> Picks up oxygen, hemoglobin turns bright red</p>
+              <div class="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-xs font-bold text-white shrink-0">1</div>
+              <p class="text-slate-300"><span class="text-red-300 font-semibold">Lungs:</span> O₂ binds to hemoglobin's iron atoms, triggering conformational change → bright scarlet color</p>
             </div>
             <div class="flex items-start gap-3">
-              <div class="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shrink-0">2</div>
-              <p class="text-slate-300"><span class="text-red-300 font-semibold">Arteries:</span> Travels through progressively smaller vessels</p>
+              <div class="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-xs font-bold text-white shrink-0">2</div>
+              <p class="text-slate-300"><span class="text-red-300 font-semibold">Arteries:</span> Travels at ~50 cm/sec through progressively smaller vessels</p>
             </div>
             <div class="flex items-start gap-3">
               <div class="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white shrink-0">3</div>
-              <p class="text-slate-300"><span class="text-red-300 font-semibold">Capillaries:</span> Squeezes through, delivers oxygen to tissues</p>
+              <p class="text-slate-300"><span class="text-red-300 font-semibold">Capillaries:</span> Deforms to squeeze through 3μm gaps, releases O₂ to tissues</p>
             </div>
             <div class="flex items-start gap-3">
               <div class="w-6 h-6 rounded-full bg-red-700 flex items-center justify-center text-xs font-bold text-white shrink-0">4</div>
-              <p class="text-slate-300"><span class="text-red-300 font-semibold">Tissues:</span> Picks up CO2 waste, turns darker</p>
+              <p class="text-slate-300"><span class="text-red-300 font-semibold">Tissues:</span> Picks up CO₂ (converted to bicarbonate via Band 3) → darker maroon color</p>
             </div>
             <div class="flex items-start gap-3">
               <div class="w-6 h-6 rounded-full bg-red-800 flex items-center justify-center text-xs font-bold text-white shrink-0">5</div>
-              <p class="text-slate-300"><span class="text-red-300 font-semibold">Veins:</span> Returns to heart, then lungs to restart</p>
+              <p class="text-slate-300"><span class="text-red-300 font-semibold">Return:</span> Back to heart → lungs → exhale CO₂ → repeat for 120 days</p>
             </div>
           </div>
+        </div>
+
+        <!-- Fun fact -->
+        <div class="bg-slate-800/50 rounded-xl p-5 border border-red-500/10">
+          <p class="text-slate-300 text-sm italic">"Your body produces about 2 million new red blood cells every second to replace the ones dying in your spleen. That's 200 billion new cells per day!"</p>
         </div>
       </div>
     </div>
