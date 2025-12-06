@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BlenderCell - Interactive 3D Plasma Cell</title>
+  <title>PlasmaCell - The Antibody Story</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -152,7 +152,7 @@
       <h1 class="text-5xl font-bold text-white mb-2 tracking-tight">
         Meet the <span class="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">Plasma Cell</span>
       </h1>
-      <h2 class="text-xl text-teal-200/80 font-medium mb-8">The Immune System's Heavy Artillery</h2>
+      <h2 class="text-xl text-teal-200/80 font-medium mb-8">The Immune System's Antibody Factory</h2>
 
       <p class="text-slate-300 text-lg leading-relaxed mb-10 max-w-lg mx-auto">
         You are about to explore a specialized biological factory. Unlike regular cells, this machine has evolved for one purpose: speed.
@@ -176,14 +176,22 @@
     <div class="pointer-events-auto flex justify-between items-start mb-auto animate-slide-down">
       <div>
         <h1 class="text-4xl font-light text-white tracking-wider drop-shadow-md">
-          BLENDER<span class="font-bold text-teal-400">CELL</span>
+          PLASMA<span class="font-bold text-teal-400">CELL</span>
         </h1>
-        <p class="text-teal-200/70 text-sm mt-1">Interactive 3D Plasma Cell Atlas</p>
+        <p class="text-teal-200/70 text-sm mt-1">The Antibody Story</p>
       </div>
 
-      <button id="reset-btn" class="bg-slate-900/80 border border-slate-600 text-white px-4 py-2 rounded-full text-sm hover:bg-slate-800 transition-colors shadow-lg opacity-0 pointer-events-none">
-        Reset View
-      </button>
+      <div class="flex gap-2">
+        <button id="er-settings-btn" class="bg-slate-900/80 border border-teal-500/50 text-teal-300 px-4 py-2 rounded-full text-sm hover:bg-teal-600 hover:text-white transition-colors shadow-lg flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+          </svg>
+          ER Tuning
+        </button>
+        <button id="reset-btn" class="bg-slate-900/80 border border-slate-600 text-white px-4 py-2 rounded-full text-sm hover:bg-slate-800 transition-colors shadow-lg opacity-0 pointer-events-none">
+          Reset View
+        </button>
+      </div>
     </div>
 
     <!-- Bottom Bar -->
@@ -194,7 +202,7 @@
           <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <span class="font-semibold tracking-wide hidden sm:inline">Cell Guide</span>
+          <span class="font-semibold tracking-wide hidden sm:inline">The Story</span>
         </button>
       </div>
 
@@ -241,7 +249,7 @@
           <svg class="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
-          <h2 class="text-2xl font-bold text-white">Cellular Guide</h2>
+          <h2 class="text-2xl font-bold text-white">The Antibody Story</h2>
         </div>
         <button id="close-info-btn" class="text-slate-400 hover:text-white transition-colors">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,9 +262,9 @@
       <div class="p-8 overflow-y-auto space-y-8 custom-scrollbar">
         <!-- General Intro -->
         <div class="bg-teal-900/20 border border-teal-500/20 rounded-xl p-6">
-          <h3 class="text-xl font-bold text-teal-300 mb-2">The Antibody Factory</h3>
-          <p class="text-slate-300 leading-relaxed mb-4">Meet the Plasma Cell. It's not just a generic cell; it's a specialized biological machine designed for one thing: Speed. While other cells have varied jobs, this one has transformed into a high-speed factory.</p>
-          <p class="text-teal-100 font-medium italic">Function: Produces and fires thousands of antibodies per second into the bloodstream to hunt down invaders.</p>
+          <h3 class="text-xl font-bold text-teal-300 mb-2">Follow the Journey</h3>
+          <p class="text-slate-300 leading-relaxed mb-4">You're about to follow an antibody from its very first moment as genetic code to its release into the bloodstream. Click on each organelle to discover its role in this incredible story of molecular manufacturing.</p>
+          <p class="text-teal-100 font-medium italic">The path: DNA → mRNA → Protein → Packaging → Release → Attack!</p>
         </div>
 
         <!-- Organelle Grid -->
@@ -269,6 +277,102 @@
 
   <!-- Label Container (for 3D labels) -->
   <div id="label-container"></div>
+
+  <!-- Organelle Info Popup (shown when clicking organelle/label) - Fixed position on left side -->
+  <div id="organelle-popup" class="fixed left-6 top-1/2 -translate-y-1/2 z-40 hidden">
+    <div class="bg-slate-900/95 backdrop-blur-md border border-teal-500/50 rounded-2xl shadow-2xl w-80 overflow-hidden animate-zoom-in">
+      <!-- Popup Header -->
+      <div class="bg-gradient-to-r from-teal-600 to-emerald-600 px-5 py-4 flex justify-between items-center">
+        <h3 id="popup-title" class="text-lg font-bold text-white">Organelle Name</h3>
+        <button id="close-popup-btn" class="text-white/80 hover:text-white transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Popup Content -->
+      <div class="p-5 space-y-3">
+        <p id="popup-description" class="text-slate-300 text-sm leading-relaxed"></p>
+        <div class="bg-teal-900/30 border border-teal-500/20 rounded-lg p-3">
+          <p class="text-xs text-teal-400 uppercase font-semibold mb-1">Function</p>
+          <p id="popup-function" class="text-teal-100 text-sm"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ER Parameters Panel -->
+  <div id="er-panel" class="fixed top-20 right-6 z-40 bg-slate-900/95 backdrop-blur-md border border-teal-500/30 rounded-xl p-4 w-72 hidden shadow-2xl">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-sm font-bold text-teal-300 uppercase tracking-wide">ER Parameters</h3>
+      <button id="close-er-panel" class="text-slate-400 hover:text-white">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="space-y-4">
+      <!-- Fold Count -->
+      <div>
+        <label class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>Fold Count</span>
+          <span id="fold-value" class="text-teal-300">34</span>
+        </label>
+        <input type="range" id="fold-slider" min="2" max="50" value="34" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500">
+      </div>
+
+      <!-- Fold Amplitude -->
+      <div>
+        <label class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>Fold Amplitude</span>
+          <span id="amp-value" class="text-teal-300">0.82</span>
+        </label>
+        <input type="range" id="amp-slider" min="5" max="150" value="82" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500">
+      </div>
+
+      <!-- Smoothness -->
+      <div>
+        <label class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>Smoothness</span>
+          <span id="smooth-value" class="text-teal-300">48</span>
+        </label>
+        <input type="range" id="smooth-slider" min="20" max="200" value="48" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500">
+      </div>
+
+      <!-- Tube Thickness -->
+      <div>
+        <label class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>Tube Thickness</span>
+          <span id="tube-value" class="text-teal-300">0.40</span>
+        </label>
+        <input type="range" id="tube-slider" min="5" max="50" value="40" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500">
+      </div>
+
+      <!-- ER Opacity -->
+      <div>
+        <label class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>ER Opacity</span>
+          <span id="opacity-value" class="text-teal-300">0.20</span>
+        </label>
+        <input type="range" id="opacity-slider" min="5" max="100" value="20" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500">
+      </div>
+
+      <!-- Membrane Opacity -->
+      <div>
+        <label class="flex justify-between text-xs text-slate-400 mb-1">
+          <span>Membrane Opacity</span>
+          <span id="membrane-value" class="text-teal-300">0.10</span>
+        </label>
+        <input type="range" id="membrane-slider" min="2" max="60" value="10" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500">
+      </div>
+
+      <!-- Regenerate Button -->
+      <button id="regenerate-er-btn" class="w-full bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors mt-2">
+        Regenerate ER
+      </button>
+    </div>
+  </div>
 
   <script type="module" src="/src/main.js"></script>
 </body>

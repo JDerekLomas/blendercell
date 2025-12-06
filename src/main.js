@@ -22,79 +22,102 @@ const DIMENSIONS = {
   CELL_RADIUS: 7.0,
   CELL_SCALE: new THREE.Vector3(1.5, 1.0, 1.0),
   NUCLEUS_RADIUS: 2.4,
-  NUCLEUS_OFFSET: new THREE.Vector3(5.5, 0, 0),
+  NUCLEUS_OFFSET: new THREE.Vector3(3.0, 0, 0), // Moved inward to stay inside cell
   GOLGI_POS: new THREE.Vector3(1.8, 0, 0)
 };
 
 const INFO_CONTENT = {
   "Cell": {
-    title: "The Antibody Factory",
-    description: "Meet the Plasma Cell. It's not just a generic cell; it's a specialized biological machine designed for one thing: Speed. While other cells have varied jobs, this one has transformed into a high-speed factory.",
-    function: "Produces and fires thousands of antibodies per second into the bloodstream to hunt down invaders."
-  },
-  "Antibodies": {
-    title: "The Product (Antibodies)",
-    description: "Look at the swarm of Y-shaped molecules surrounding the cell! These are antibodies (Immunoglobulins). Notice they are all identical? That's because this cell is programmed to make only ONE specific type of antibody that targets ONE specific germ.",
-    function: "Lock onto viruses and bacteria, tagging them for destruction by the immune system."
+    title: "Plasma Cell: The Antibody Factory",
+    description: "This is a Plasma Cell—a specialized B-cell transformed into a high-speed antibody factory. While other cells juggle many jobs, this one does just one thing: mass-produce antibodies. The entire cell has reorganized around this mission. Notice how the nucleus is pushed aside? That's to make room for the enormous Rough ER that dominates the cytoplasm.",
+    function: "Produces thousands of identical antibodies per second to fight a specific pathogen."
   },
   "Nucleus": {
-    title: "The CEO's Office (Nucleus)",
-    description: "See how the nucleus is pushed off to the side? That's because the factory floor (RER) needs so much space! This dark sphere holds the master blueprints.",
-    function: "Protects the DNA instructions needed to build the specific antibody this cell produces."
+    title: "Nucleus: The Blueprint Vault",
+    description: "The nucleus contains DNA—the master instructions for building antibodies. Here, the antibody gene is 'transcribed': an enzyme reads the DNA sequence and creates a messenger RNA (mRNA) copy. This mRNA exits through nuclear pores and travels to the Rough ER. Notice the nucleus is pushed to one side? Plasma cells sacrifice nuclear space to maximize their protein-making machinery.",
+    function: "Stores DNA and produces mRNA transcripts that carry antibody-building instructions to the ribosomes."
   },
   "RER": {
-    title: "The Assembly Line (Rough ER)",
-    description: "This massive maze of teal tubes takes up almost the whole cell. It's 'Rough' because it's covered in millions of tiny ribosomes (dots). It's the main factory floor.",
-    function: "Reads instructions from the nucleus and assembles raw amino acids into antibody protein chains."
-  },
-  "Golgi": {
-    title: "Shipping & Packaging (Golgi)",
-    description: "Located in the clear zone near the nucleus (the 'Hof'). The Golgi takes the raw antibodies from the RER, polishes them, and packs them into bubbles.",
-    function: "Modifies proteins and packages them into vesicles for export."
-  },
-  "Mitochondria": {
-    title: "Power Plants (Mitochondria)",
-    description: "Running a factory 24/7 takes a lot of energy. These red, bean-shaped engines are everywhere, burning fuel to keep the lights on.",
-    function: "Generate ATP energy to power the intense protein synthesis."
-  },
-  "Vesicles": {
-    title: "Delivery Trucks (Vesicles)",
-    description: "Watch these bubbles streaming from the gold Golgi to the outer wall. They travel along microtubule tracks before fusing with the membrane to release their cargo.",
-    function: "Transport the final product to the cell membrane to be released."
-  },
-  "Lysosomes": {
-    title: "Janitors (Lysosomes)",
-    description: "Every factory creates waste. These green spheres contain acid to melt down broken parts or recycling.",
-    function: "Clean up waste and recycle old organelles."
-  },
-  "Centrioles": {
-    title: "Logistics Managers (Centrioles)",
-    description: "A pair of barrel structures near the center. They organize the 'roads' (microtubules) that the delivery trucks drive on.",
-    function: "Organize the cytoskeleton to guide traffic inside the cell."
+    title: "Rough ER: The Assembly Line",
+    description: "This massive network of membrane sheets is where antibodies are actually built. Ribosomes studding the surface read mRNA instructions and assemble amino acids into protein chains—a process called 'translation.' The rough ER is HUGE in plasma cells because antibody production never stops. Each ribosome can make about 2,000 antibodies per hour.",
+    function: "Translates mRNA code into antibody proteins. The main production floor of the factory."
   },
   "Ribosomes": {
-    title: "The Workers (Free Ribosomes)",
-    description: "While the RER ribosomes build product for export, these free-floating specks build tools for the factory itself.",
-    function: "Build proteins that stay inside the cell to keep it alive."
+    title: "Ribosomes: The Protein Builders",
+    description: "These tiny molecular machines read mRNA like a tape and build proteins one amino acid at a time. Ribosomes attached to the ER make proteins for export (like antibodies). Free-floating ribosomes in the cytoplasm make proteins the cell keeps for itself. Same machine, different destinations.",
+    function: "Read genetic code and assemble amino acids into proteins. The workers on the assembly line."
+  },
+  "Golgi": {
+    title: "Golgi Apparatus: Quality Control & Shipping",
+    description: "Located in the clear 'Hof' zone near the nucleus, the Golgi receives raw antibody chains from the ER. Here they get finishing touches: sugar molecules are attached, the protein folds into its final Y-shape, and quality checks catch any defects. Approved antibodies are packaged into vesicles for export. Defective ones are sent to lysosomes for recycling.",
+    function: "Modifies, folds, inspects, and packages antibodies. Only perfect products ship out."
+  },
+  "Vesicles": {
+    title: "Vesicles: The Delivery System",
+    description: "These membrane bubbles carry finished antibodies from the Golgi to the cell surface. They don't drift randomly—motor proteins (kinesins) actively walk them along microtubule tracks. At the membrane, vesicles fuse and release their cargo outside the cell. This release process is called exocytosis.",
+    function: "Transport packaged antibodies to the cell membrane for release into the bloodstream."
+  },
+  "Antibodies": {
+    title: "Antibodies: The Product",
+    description: "These Y-shaped proteins are what the whole factory exists to produce. Each antibody is designed to recognize ONE specific target—like a lock fitting one key. The tips of the Y bind to molecules on pathogens (called antigens). When antibodies coat a virus or bacterium, they mark it for destruction by other immune cells.",
+    function: "Bind to specific pathogens and tag them for destruction by the immune system."
+  },
+  "Mitochondria": {
+    title: "Mitochondria: The Power Plants",
+    description: "Antibody production burns through enormous amounts of energy. Every peptide bond, every vesicle movement, every molecular motor requires ATP. These bean-shaped organelles work constantly, converting glucose and oxygen into ATP through cellular respiration. Their internal folds (cristae) maximize the surface area for energy production.",
+    function: "Generate ATP energy to power the cell's non-stop protein synthesis machinery."
+  },
+  "Lysosomes": {
+    title: "Lysosomes: The Recycling Centers",
+    description: "Not every protein folds correctly. When the Golgi's quality control rejects a misfolded antibody, it gets sent here. Lysosomes contain powerful digestive enzymes that break down defective proteins, worn-out organelles, and other cellular waste. The resulting amino acids are recycled back into the production supply chain.",
+    function: "Break down and recycle failed proteins and cellular waste. Nothing goes to waste."
+  },
+  "Centrioles": {
+    title: "Centrioles: The Traffic Organizers",
+    description: "These barrel-shaped structures organize the microtubule network that vesicles travel on. In dividing cells, centrioles help separate chromosomes. But plasma cells rarely divide—they're terminally differentiated, focused entirely on antibody production. Here, centrioles mainly coordinate intracellular transport.",
+    function: "Organize the microtubule cytoskeleton that serves as tracks for vesicle transport."
   },
   "Microtubules": {
-    title: "The Roads (Microtubules)",
-    description: "These thin tubes act as highways. Vesicles latch onto them and are motored towards the cell surface.",
-    function: "Provide structural support and transport tracks for organelles."
+    title: "Microtubules: The Highway System",
+    description: "These hollow protein tubes form the transport infrastructure of the cell. Motor proteins (kinesin walking outward, dynein walking inward) grip the tubes and carry cargo along them. The network is dynamic—constantly growing and shrinking to adapt to the cell's changing needs.",
+    function: "Provide structural support and serve as tracks for motor protein-driven transport."
   }
 };
 
 // ============================================
-// SECRETION PATHS (Golgi to Membrane)
+// SECRETION PATHS (Golgi to Membrane - constrained inside cell)
 // ============================================
+// Helper to clamp point to cell interior (ovoid: 1.5x in X, radius ~6.5)
+function clampToCell(x, y, z, margin = 0.3) {
+  const cellRadiusX = 6.5 - margin;
+  const cellRadiusYZ = 6.5 - margin;
+
+  // Check if outside ovoid
+  const normalized = (x * x) / (cellRadiusX * cellRadiusX) +
+                     (y * y) / (cellRadiusYZ * cellRadiusYZ) +
+                     (z * z) / (cellRadiusYZ * cellRadiusYZ);
+
+  if (normalized > 1) {
+    // Scale back to surface
+    const scale = 1 / Math.sqrt(normalized);
+    return { x: x * scale, y: y * scale, z: z * scale };
+  }
+  return { x, y, z };
+}
+
 const SECRETION_PATHS = Array.from({ length: 8 }).map((_, i) => {
   const theta = (Math.PI * 2 * i) / 8 + (Math.random() * 0.5);
   const radius = 2.0 + Math.random() * 1.5;
   const y = Math.cos(theta) * radius;
   const z = Math.sin(theta) * radius;
+
+  // End point near membrane but inside (left side of cell, towards -X)
+  const rawEndX = -5.5 + Math.random() * 0.5; // Inside the ovoid X extent
+  const clamped = clampToCell(rawEndX, y, z, 0.5);
+
   return {
     start: new THREE.Vector3(1.8, 0, 0),
-    end: new THREE.Vector3(-8.5 + Math.random(), y, z)
+    end: new THREE.Vector3(clamped.x, clamped.y, clamped.z)
   };
 });
 
@@ -271,18 +294,19 @@ cellGroup.scale.copy(DIMENSIONS.CELL_SCALE);
 scene.add(cellGroup);
 
 // ============================================
-// CELL MEMBRANE
+// CELL MEMBRANE (Subtle - 10% default opacity)
 // ============================================
 const membraneGeometry = new THREE.SphereGeometry(DIMENSIONS.CELL_RADIUS, 64, 64);
 const membraneMaterial = new THREE.MeshPhysicalMaterial({
   color: COLORS.MEMBRANE,
   transparent: true,
-  opacity: 0.15,
-  roughness: 0.1,
+  opacity: 0.10, // 10% opacity as requested
+  roughness: 0.2,
   metalness: 0.1,
   transmission: 0.6,
-  thickness: 1.5,
-  clearcoat: 1,
+  thickness: 2.0,
+  clearcoat: 0.8,
+  clearcoatRoughness: 0.1,
   side: THREE.DoubleSide,
   depthWrite: false
 });
@@ -290,139 +314,419 @@ const membrane = new THREE.Mesh(membraneGeometry, membraneMaterial);
 membrane.raycast = () => {}; // Disable raycast on membrane
 cellGroup.add(membrane);
 
-organelleGroups['Membrane'] = { meshes: [membrane], material: membraneMaterial };
+// Add a subtle inner glow/rim to make membrane more visible
+const membraneRimGeometry = new THREE.SphereGeometry(DIMENSIONS.CELL_RADIUS * 0.99, 64, 64);
+const membraneRimMaterial = new THREE.MeshBasicMaterial({
+  color: 0x88ccff,
+  transparent: true,
+  opacity: 0.03,
+  side: THREE.BackSide
+});
+const membraneRim = new THREE.Mesh(membraneRimGeometry, membraneRimMaterial);
+cellGroup.add(membraneRim);
+
+organelleGroups['Membrane'] = { meshes: [membrane, membraneRim], material: membraneMaterial };
 
 // ============================================
-// NUCLEUS (Eccentric Position)
+// NUCLEUS (Eccentric Position - with detailed internal structure)
 // ============================================
 const nucleusGroup = new THREE.Group();
 nucleusGroup.position.copy(DIMENSIONS.NUCLEUS_OFFSET);
+// Counter-scale to keep nucleus spherical (parent cellGroup is 1.5x in X)
+nucleusGroup.scale.set(1 / DIMENSIONS.CELL_SCALE.x, 1, 1);
 
-// Nuclear envelope
+// Nuclear envelope (outer membrane) - 50% opacity
+const nuclearEnvelopeMat = new THREE.MeshPhysicalMaterial({
+  color: COLORS.NUCLEUS,
+  roughness: 0.4,
+  metalness: 0.1,
+  transparent: true,
+  opacity: 0.5, // 50% opacity as requested
+  side: THREE.DoubleSide,
+  clearcoat: 0.3
+});
 const nuclearEnvelope = new THREE.Mesh(
   new THREE.SphereGeometry(DIMENSIONS.NUCLEUS_RADIUS, 64, 64),
-  new THREE.MeshStandardMaterial({
-    color: COLORS.NUCLEUS,
-    roughness: 0.5,
-    metalness: 0.2
-  })
+  nuclearEnvelopeMat
 );
 nuclearEnvelope.userData = { organelle: 'Nucleus' };
 clickableMeshes.push(nuclearEnvelope);
 nucleusGroup.add(nuclearEnvelope);
 
-// Nucleoplasm inner glow
-const nucleoplasm = new THREE.Mesh(
-  new THREE.SphereGeometry(DIMENSIONS.NUCLEUS_RADIUS * 0.95, 48, 48),
-  new THREE.MeshStandardMaterial({
-    color: 0x3d1a5e,
-    emissive: 0x1a0a2e,
-    emissiveIntensity: 0.3,
+// Inner nuclear membrane
+const innerNuclearMembrane = new THREE.Mesh(
+  new THREE.SphereGeometry(DIMENSIONS.NUCLEUS_RADIUS * 0.97, 48, 48),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x3a1850,
+    roughness: 0.5,
     transparent: true,
-    opacity: 0.8
+    opacity: 0.4,
+    side: THREE.BackSide
+  })
+);
+nucleusGroup.add(innerNuclearMembrane);
+
+// Nucleoplasm (inner fluid)
+const nucleoplasm = new THREE.Mesh(
+  new THREE.SphereGeometry(DIMENSIONS.NUCLEUS_RADIUS * 0.93, 32, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0x2a1040,
+    transparent: true,
+    opacity: 0.3
   })
 );
 nucleusGroup.add(nucleoplasm);
 
-// Nucleolus (2 of them)
-for (let i = 0; i < 2; i++) {
-  const nucleolus = new THREE.Mesh(
-    new THREE.SphereGeometry(0.5 + Math.random() * 0.2, 32, 32),
-    new THREE.MeshStandardMaterial({
-      color: 0x553388,
-      roughness: 0.6,
-      emissive: 0x220044,
-      emissiveIntensity: 0.5
-    })
+// Nuclear lamina (mesh network under envelope)
+const laminaMat = new THREE.MeshBasicMaterial({
+  color: 0x6644aa,
+  transparent: true,
+  opacity: 0.2,
+  wireframe: true
+});
+const lamina = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(DIMENSIONS.NUCLEUS_RADIUS * 0.96, 2),
+  laminaMat
+);
+nucleusGroup.add(lamina);
+
+// Nuclear pores (small torus shapes on surface)
+const poreMat = new THREE.MeshStandardMaterial({
+  color: 0x4422aa,
+  roughness: 0.3,
+  emissive: 0x221155,
+  emissiveIntensity: 0.3
+});
+
+for (let i = 0; i < 40; i++) {
+  // Distribute on sphere surface
+  const phi = Math.acos(2 * Math.random() - 1);
+  const theta = Math.random() * Math.PI * 2;
+
+  const x = DIMENSIONS.NUCLEUS_RADIUS * Math.sin(phi) * Math.cos(theta);
+  const y = DIMENSIONS.NUCLEUS_RADIUS * Math.sin(phi) * Math.sin(theta);
+  const z = DIMENSIONS.NUCLEUS_RADIUS * Math.cos(phi);
+
+  const pore = new THREE.Mesh(
+    new THREE.TorusGeometry(0.08, 0.025, 8, 12),
+    poreMat
   );
-  nucleolus.position.set(
-    (Math.random() - 0.5) * 1.2,
-    (Math.random() - 0.5) * 1.2,
-    (Math.random() - 0.5) * 1.2
-  );
-  nucleusGroup.add(nucleolus);
+  pore.position.set(x, y, z);
+  pore.lookAt(0, 0, 0);
+  nucleusGroup.add(pore);
 }
 
-// Chromatin strands
-const chromatinMaterial = new THREE.MeshStandardMaterial({
+// Nucleolus (2-3 dense bodies)
+const nucleolusMat = new THREE.MeshStandardMaterial({
+  color: 0x553388,
+  roughness: 0.4,
+  emissive: 0x331166,
+  emissiveIntensity: 0.5
+});
+
+for (let i = 0; i < 2; i++) {
+  // Main nucleolus body
+  const nucleolus = new THREE.Mesh(
+    new THREE.SphereGeometry(0.45 + Math.random() * 0.15, 24, 24),
+    nucleolusMat
+  );
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 0.5 + Math.random() * 0.5;
+  nucleolus.position.set(
+    Math.cos(angle) * dist,
+    (Math.random() - 0.5) * 1.0,
+    Math.sin(angle) * dist
+  );
+
+  // Fibrillar center (darker spot inside)
+  const fibrillarCenter = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15, 12, 12),
+    new THREE.MeshBasicMaterial({
+      color: 0x220044,
+      transparent: true,
+      opacity: 0.8
+    })
+  );
+  fibrillarCenter.position.copy(nucleolus.position);
+  fibrillarCenter.position.x += (Math.random() - 0.5) * 0.1;
+
+  nucleusGroup.add(nucleolus);
+  nucleusGroup.add(fibrillarCenter);
+}
+
+// Chromatin - heterochromatin (dense, dark) and euchromatin (loose, lighter)
+// Heterochromatin - dense clumps near periphery
+const heterochromatinMat = new THREE.MeshStandardMaterial({
+  color: 0x1a0a2e,
+  roughness: 0.7,
+  emissive: 0x0a0515,
+  emissiveIntensity: 0.1
+});
+
+for (let i = 0; i < 15; i++) {
+  const phi = Math.acos(2 * Math.random() - 1);
+  const theta = Math.random() * Math.PI * 2;
+  const r = DIMENSIONS.NUCLEUS_RADIUS * (0.7 + Math.random() * 0.2);
+
+  const clump = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15 + Math.random() * 0.1, 8, 8),
+    heterochromatinMat
+  );
+  clump.position.set(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.sin(phi) * Math.sin(theta),
+    r * Math.cos(phi)
+  );
+  clump.scale.set(1 + Math.random() * 0.5, 1, 1 + Math.random() * 0.3);
+  nucleusGroup.add(clump);
+}
+
+// Euchromatin - loose, stringy chromatin throughout
+const euchromatinMat = new THREE.MeshStandardMaterial({
   color: 0x9977dd,
   roughness: 0.5,
   emissive: 0x332255,
-  emissiveIntensity: 0.2
+  emissiveIntensity: 0.2,
+  transparent: true,
+  opacity: 0.7
 });
 
-for (let i = 0; i < 12; i++) {
+for (let i = 0; i < 20; i++) {
   const points = [];
-  for (let j = 0; j < 4; j++) {
+  const startAngle = Math.random() * Math.PI * 2;
+  const startR = Math.random() * 1.5;
+
+  for (let j = 0; j < 6; j++) {
+    const t = j / 5;
+    const angle = startAngle + t * Math.PI * (0.5 + Math.random());
+    const r = startR + (Math.random() - 0.5) * 0.8;
+    const y = (Math.random() - 0.5) * 2.5;
+
     points.push(new THREE.Vector3(
-      (Math.random() - 0.5) * 1.8,
-      (Math.random() - 0.5) * 1.8,
-      (Math.random() - 0.5) * 1.8
+      Math.cos(angle) * r,
+      y,
+      Math.sin(angle) * r
     ));
   }
+
   const curve = new THREE.CatmullRomCurve3(points);
-  const tubeGeometry = new THREE.TubeGeometry(curve, 20, 0.05, 8, false);
-  const chromatin = new THREE.Mesh(tubeGeometry, chromatinMaterial);
+  const tubeGeometry = new THREE.TubeGeometry(curve, 24, 0.03, 6, false);
+  const chromatin = new THREE.Mesh(tubeGeometry, euchromatinMat);
   nucleusGroup.add(chromatin);
 }
 
 cellGroup.add(nucleusGroup);
 organelleGroups['Nucleus'] = {
   group: nucleusGroup,
-  meshes: [nuclearEnvelope, nucleoplasm],
+  meshes: [nuclearEnvelope],
   labelOffset: new THREE.Vector3(0, 3, 0)
 };
 
 // ============================================
-// GOLGI APPARATUS (Curved Cisternae)
+// GOLGI APPARATUS (Detailed Stacked Cisternae)
 // ============================================
 const golgiGroup = new THREE.Group();
 golgiGroup.position.copy(DIMENSIONS.GOLGI_POS);
-golgiGroup.rotation.set(0, 0, 0.3);
+golgiGroup.rotation.set(0, 0, 0.2);
 
-const golgiMaterial = new THREE.MeshStandardMaterial({
-  color: COLORS.GOLGI,
-  roughness: 0.3,
-  emissive: 0x332200,
-  emissiveIntensity: 0.2
+// Create curved, flattened cisterna shape
+function createGolgiCisterna(width, depth, curvature, thickness) {
+  const shape = new THREE.Shape();
+  const segments = 32;
+
+  // Create curved elongated shape
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const x = (t - 0.5) * width;
+    const curve = Math.sin(t * Math.PI) * curvature;
+    if (i === 0) {
+      shape.moveTo(x, curve + depth / 2);
+    } else {
+      shape.lineTo(x, curve + depth / 2);
+    }
+  }
+  for (let i = segments; i >= 0; i--) {
+    const t = i / segments;
+    const x = (t - 0.5) * width;
+    const curve = Math.sin(t * Math.PI) * curvature;
+    shape.lineTo(x, curve - depth / 2);
+  }
+  shape.closePath();
+
+  const extrudeSettings = {
+    depth: thickness,
+    bevelEnabled: true,
+    bevelThickness: thickness * 0.3,
+    bevelSize: thickness * 0.2,
+    bevelSegments: 3,
+    curveSegments: 24
+  };
+
+  return new THREE.ExtrudeGeometry(shape, extrudeSettings);
+}
+
+// Golgi materials - gradient from cis (receiving) to trans (shipping)
+const golgiCisMat = new THREE.MeshPhysicalMaterial({
+  color: 0xE6B800, // Lighter gold (cis face)
+  roughness: 0.4,
+  metalness: 0.1,
+  emissive: 0x442200,
+  emissiveIntensity: 0.15,
+  transparent: true,
+  opacity: 0.85
 });
 
-// 6 curved torus cisternae
-for (let i = 0; i < 6; i++) {
-  const scale = 1 - Math.abs(i - 2.5) * 0.12;
-  const cisterna = new THREE.Mesh(
-    new THREE.TorusGeometry(1.4 * scale, 0.1, 16, 32, Math.PI * 1.5),
-    golgiMaterial.clone()
-  );
-  cisterna.position.y = (i - 2.5) * 0.25;
-  cisterna.position.x = (i - 2.5) * 0.08;
+const golgiMedialMat = new THREE.MeshPhysicalMaterial({
+  color: 0xFFD700, // Classic gold (medial)
+  roughness: 0.35,
+  metalness: 0.15,
+  emissive: 0x553300,
+  emissiveIntensity: 0.2,
+  transparent: true,
+  opacity: 0.9
+});
+
+const golgiTransMat = new THREE.MeshPhysicalMaterial({
+  color: 0xDAA520, // Darker gold (trans face)
+  roughness: 0.3,
+  metalness: 0.2,
+  emissive: 0x664400,
+  emissiveIntensity: 0.25,
+  transparent: true,
+  opacity: 0.85
+});
+
+// Create 8 stacked cisternae with varying curvature
+const cisternaCount = 8;
+const stackSpacing = 0.18;
+const baseWidth = 2.2;
+const baseDepth = 0.8;
+
+for (let i = 0; i < cisternaCount; i++) {
+  const t = i / (cisternaCount - 1); // 0 to 1
+  const width = baseWidth * (1 - t * 0.3); // Narrower toward trans
+  const depth = baseDepth * (1 - t * 0.2);
+  const curvature = 0.3 + t * 0.4; // More curved toward trans
+  const thickness = 0.06 + Math.random() * 0.02;
+
+  // Choose material based on position
+  let mat;
+  if (i < 2) mat = golgiCisMat.clone();
+  else if (i < 6) mat = golgiMedialMat.clone();
+  else mat = golgiTransMat.clone();
+
+  const geometry = createGolgiCisterna(width, depth, curvature, thickness);
+  const cisterna = new THREE.Mesh(geometry, mat);
+
+  cisterna.position.y = (i - cisternaCount / 2) * stackSpacing;
+  cisterna.position.x = t * 0.15; // Slight offset creating stack tilt
   cisterna.rotation.x = Math.PI / 2;
-  cisterna.scale.z = 0.3;
+  cisterna.rotation.z = Math.PI / 2;
+
   cisterna.userData = { organelle: 'Golgi' };
   clickableMeshes.push(cisterna);
   golgiGroup.add(cisterna);
 }
 
-// Budding vesicles
+// Add fenestrations (small holes) represented as darker spots
+const fenestrationMat = new THREE.MeshBasicMaterial({
+  color: 0x1a1a00,
+  transparent: true,
+  opacity: 0.4
+});
+
+for (let i = 0; i < 30; i++) {
+  const fenestration = new THREE.Mesh(
+    new THREE.CircleGeometry(0.03 + Math.random() * 0.03, 8),
+    fenestrationMat
+  );
+  fenestration.position.set(
+    (Math.random() - 0.5) * 0.3,
+    (Math.random() - 0.5) * 1.2,
+    (Math.random() - 0.5) * 1.5
+  );
+  fenestration.rotation.y = Math.PI / 2;
+  golgiGroup.add(fenestration);
+}
+
+// Tubular network connecting cisternae
+const tubuleMaterial = new THREE.MeshStandardMaterial({
+  color: 0xCCAA00,
+  roughness: 0.5,
+  transparent: true,
+  opacity: 0.6
+});
+
+for (let i = 0; i < 15; i++) {
+  const startY = (Math.random() - 0.5) * 1.2;
+  const endY = startY + (Math.random() - 0.5) * 0.4;
+
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3((Math.random() - 0.5) * 0.2, startY, (Math.random() - 0.5) * 1.0),
+    new THREE.Vector3((Math.random() - 0.5) * 0.15, (startY + endY) / 2, (Math.random() - 0.5) * 0.8),
+    new THREE.Vector3((Math.random() - 0.5) * 0.2, endY, (Math.random() - 0.5) * 1.0)
+  ]);
+
+  const tubeGeom = new THREE.TubeGeometry(curve, 8, 0.015, 6, false);
+  const tube = new THREE.Mesh(tubeGeom, tubuleMaterial);
+  golgiGroup.add(tube);
+}
+
+// Budding vesicles - more of them, varying sizes
 const budVesicleMat = new THREE.MeshStandardMaterial({
   color: COLORS.GOLGI,
   emissive: COLORS.GOLGI,
-  emissiveIntensity: 0.3,
+  emissiveIntensity: 0.4,
   transparent: true,
-  opacity: 0.8
+  opacity: 0.85
 });
 
-for (let i = 0; i < 12; i++) {
+// Cis-side vesicles (arriving from ER)
+for (let i = 0; i < 8; i++) {
   const vesicle = new THREE.Mesh(
-    new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 12, 12),
-    budVesicleMat
+    new THREE.SphereGeometry(0.06 + Math.random() * 0.03, 12, 12),
+    budVesicleMat.clone()
   );
-  const angle = Math.random() * Math.PI * 2;
-  const r = 1.5 + Math.random() * 0.3;
+  vesicle.material.color.setHex(0xAADD88); // Greenish - from ER
   vesicle.position.set(
-    Math.cos(angle) * r * 0.3,
-    (Math.random() - 0.5) * 1.2,
-    Math.sin(angle) * r
+    -0.3 + Math.random() * 0.2,
+    -0.8 + Math.random() * 0.3,
+    (Math.random() - 0.5) * 1.5
+  );
+  golgiGroup.add(vesicle);
+}
+
+// Trans-side vesicles (departing)
+for (let i = 0; i < 15; i++) {
+  const vesicle = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05 + Math.random() * 0.04, 12, 12),
+    budVesicleMat.clone()
+  );
+  vesicle.position.set(
+    0.2 + Math.random() * 0.3,
+    0.7 + Math.random() * 0.4,
+    (Math.random() - 0.5) * 1.8
+  );
+  golgiGroup.add(vesicle);
+}
+
+// Coated vesicles (clathrin-coated look)
+const coatedVesicleMat = new THREE.MeshStandardMaterial({
+  color: 0xCC8800,
+  roughness: 0.7,
+  emissive: 0x442200,
+  emissiveIntensity: 0.2
+});
+
+for (let i = 0; i < 6; i++) {
+  const vesicle = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.07, 0), // Faceted look
+    coatedVesicleMat
+  );
+  vesicle.position.set(
+    0.35 + Math.random() * 0.2,
+    0.5 + Math.random() * 0.5,
+    (Math.random() - 0.5) * 1.2
   );
   golgiGroup.add(vesicle);
 }
@@ -435,20 +739,22 @@ organelleGroups['Golgi'] = {
 };
 
 // ============================================
-// CENTRIOLES (9-Triplet Structure)
+// CENTRIOLES (9-Triplet Structure) - Made larger for visibility
 // ============================================
 const centriolesGroup = new THREE.Group();
-centriolesGroup.position.set(3.2, 0.5, 0.5);
-centriolesGroup.rotation.set(0.5, 0.5, 0);
+// Position near nucleus but NOT overlapping (nucleus at x=3, radius=2.4)
+// Place centrioles in the "cell center" area between nucleus and Golgi
+centriolesGroup.position.set(0.5, 2.0, 2.0);
+centriolesGroup.rotation.set(0.3, 0.3, 0);
 
 const centrioleMat = new THREE.MeshStandardMaterial({
   color: COLORS.CENTRIOLE,
   roughness: 0.3,
-  emissive: 0x602040,
-  emissiveIntensity: 0.1
+  emissive: 0x802060,
+  emissiveIntensity: 0.3
 });
 
-// Create two perpendicular centrioles
+// Create two perpendicular centrioles (scaled up 3x)
 for (let c = 0; c < 2; c++) {
   const centrioleUnit = new THREE.Group();
 
@@ -457,10 +763,10 @@ for (let c = 0; c < 2; c++) {
     const angle = (i / 9) * Math.PI * 2;
     for (let t = 0; t < 3; t++) {
       const tube = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.015, 0.015, 0.4, 8),
+        new THREE.CylinderGeometry(0.04, 0.04, 1.0, 8),
         centrioleMat
       );
-      const r = 0.08 + t * 0.018;
+      const r = 0.2 + t * 0.05;
       tube.position.set(
         Math.cos(angle + t * 0.12) * r,
         0,
@@ -474,21 +780,21 @@ for (let c = 0; c < 2; c++) {
 
   if (c === 1) {
     centrioleUnit.rotation.z = Math.PI / 2;
-    centrioleUnit.position.x = 0.2;
+    centrioleUnit.position.x = 0.5;
   }
   centriolesGroup.add(centrioleUnit);
 }
 
-// PCM cloud (pericentriolar material)
-const pcmGeom = new THREE.SphereGeometry(0.25, 16, 16);
+// PCM cloud (pericentriolar material) - larger
+const pcmGeom = new THREE.SphereGeometry(0.7, 16, 16);
 const pcmMat = new THREE.MeshStandardMaterial({
   color: COLORS.CENTRIOLE,
   transparent: true,
-  opacity: 0.2,
+  opacity: 0.15,
   roughness: 0.8
 });
 const pcm = new THREE.Mesh(pcmGeom, pcmMat);
-pcm.position.set(0.1, 0, 0);
+pcm.position.set(0.25, 0, 0);
 centriolesGroup.add(pcm);
 
 cellGroup.add(centriolesGroup);
@@ -503,16 +809,56 @@ organelleGroups['Centrioles'] = {
 // ============================================
 const rerGroup = new THREE.Group();
 
-// RER Material - translucent teal with ribosome-like texture
+// Create procedural ribosome bump texture
+function createRibosomeBumpTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  // Dark base
+  ctx.fillStyle = '#333';
+  ctx.fillRect(0, 0, 256, 256);
+
+  // Add ribosome bumps (small circles)
+  for (let i = 0; i < 800; i++) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const r = 2 + Math.random() * 3;
+
+    // Gradient for 3D bump look
+    const gradient = ctx.createRadialGradient(x, y - r * 0.3, 0, x, y, r);
+    gradient.addColorStop(0, '#fff');
+    gradient.addColorStop(0.5, '#888');
+    gradient.addColorStop(1, '#333');
+
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(4, 4);
+  return texture;
+}
+
+const ribosomeBumpTexture = createRibosomeBumpTexture();
+
+// RER Material - translucent teal with ribosome bump texture (20% opacity)
 const rerMaterial = new THREE.MeshPhysicalMaterial({
   color: COLORS.RER,
-  roughness: 0.4,
+  roughness: 0.6,
   metalness: 0.05,
   side: THREE.DoubleSide,
   transparent: true,
-  opacity: 0.7,
+  opacity: 0.20, // 20% opacity as requested
   emissive: 0x115555,
-  emissiveIntensity: 0.2
+  emissiveIntensity: 0.3,
+  bumpMap: ribosomeBumpTexture,
+  bumpScale: 0.15
 });
 
 // Cell boundary check (ovoid shape: stretched in X)
@@ -534,12 +880,167 @@ function avoidsNucleus(x, y, z, margin = 0.8) {
   return dist > nucR;
 }
 
-// Create a convoluted folded torus (like intestines/brain folds)
-function createConvolutedTorus(majorRadius, minorRadius, folds, amplitude) {
-  const tubularSegments = 80;
-  const radialSegments = 12;
+// ============================================
+// SHEET-BASED ER SYSTEM (Space-filling membrane sheets)
+// ============================================
 
-  // Create custom torus with folds
+// Create an undulating membrane sheet (cisterna)
+function createERSheet(width, depth, wavesX, wavesZ, amplitude, segments = 40) {
+  const geometry = new THREE.PlaneGeometry(width, depth, segments, segments);
+  const positions = geometry.attributes.position;
+
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i);
+    const z = positions.getY(i); // PlaneGeometry uses Y for the second dimension
+
+    // Smooth undulating waves
+    const wave1 = Math.sin(x * wavesX * 0.5) * amplitude;
+    const wave2 = Math.sin(z * wavesZ * 0.5) * amplitude * 0.6;
+    const wave3 = Math.cos((x + z) * 0.3) * amplitude * 0.3;
+
+    // Combined smooth undulation
+    const y = wave1 + wave2 + wave3;
+
+    positions.setZ(i, y);
+  }
+
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+// Create curved cisterna (bent sheet)
+function createCurvedCisterna(radius, arcAngle, height, waves, amplitude, segments = 50) {
+  const geometry = new THREE.PlaneGeometry(radius * arcAngle, height, segments, Math.floor(segments / 2));
+  const positions = geometry.attributes.position;
+
+  for (let i = 0; i < positions.count; i++) {
+    let u = positions.getX(i); // Along the arc
+    let v = positions.getY(i); // Height
+
+    // Convert to curved surface (cylindrical mapping)
+    const angle = (u / radius);
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
+
+    // Add smooth undulation along the curve
+    const wave1 = Math.sin(angle * waves) * amplitude;
+    const wave2 = Math.sin(v * 2 + angle * waves * 0.5) * amplitude * 0.4;
+
+    // Radial displacement for undulation
+    const radialOffset = wave1 + wave2;
+    const newX = Math.cos(angle) * (radius + radialOffset);
+    const newZ = Math.sin(angle) * (radius + radialOffset);
+
+    positions.setXYZ(i, newX, v, newZ);
+  }
+
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+// Store ER sheets for ribosome placement
+const rerSheets = [];
+
+// Stacked horizontal cisternae (classic ER look) - spread out, avoid hof (x > 0)
+const erStackCount = 16;
+const erStackSpacing = 0.45;
+const erBaseY = -3.0;
+
+// Helper to check if position is in the hof zone (Golgi area)
+function avoidsHof(x, y, z) {
+  // Hof is the clear zone around Golgi at (1.8, 0, 0) and nucleus at (3, 0, 0)
+  // Keep ER away from x > 0 in the central region
+  if (x > 0 && Math.abs(y) < 2.5 && Math.abs(z) < 2.5) return false;
+  return true;
+}
+
+for (let s = 0; s < erStackCount; s++) {
+  const y = erBaseY + s * erStackSpacing;
+  // Shift ER more to the left (negative X) to leave room for hof
+  const xOffset = -3.5 + (Math.random() - 0.5) * 1.5;
+
+  // Vary size based on position (larger in middle)
+  const sizeFactor = 1 - Math.abs(s - erStackCount / 2) / (erStackCount / 2) * 0.3;
+  const width = 6.0 * sizeFactor;
+  const depth = 5.5 * sizeFactor;
+
+  // Skip if outside cell, in nucleus, or in hof
+  if (!isInsideCell(xOffset, y, 0, 1.5)) continue;
+  if (!avoidsNucleus(xOffset, y, 0, 1.2)) continue;
+  if (!avoidsHof(xOffset, y, 0)) continue;
+
+  const sheet = new THREE.Mesh(
+    createERSheet(width, depth, 3 + Math.random() * 2, 2 + Math.random() * 2, 0.15 + Math.random() * 0.1),
+    rerMaterial.clone()
+  );
+
+  sheet.position.set(xOffset, y, 0);
+  sheet.rotation.x = -Math.PI / 2; // Lay flat
+  sheet.rotation.z = (Math.random() - 0.5) * 0.3; // Slight rotation variation
+
+  sheet.userData = { organelle: 'RER' };
+  clickableMeshes.push(sheet);
+  rerGroup.add(sheet);
+  rerSheets.push(sheet);
+}
+
+// Curved cisternae wrapping around (more 3D) - spread wider, avoid hof
+const curvedCount = 12;
+for (let c = 0; c < curvedCount; c++) {
+  const angle = (c / curvedCount) * Math.PI * 2;
+  const radius = 2.5 + Math.random() * 2.0;
+  const height = 2.5 + Math.random() * 2.0;
+  // Spread more to negative X and wider Z
+  const xPos = Math.cos(angle) * 2.0 - 3.0;
+  const zPos = Math.sin(angle) * 4.0;
+  const yPos = (Math.random() - 0.5) * 5;
+
+  if (!isInsideCell(xPos, yPos, zPos, 1.5)) continue;
+  if (!avoidsNucleus(xPos, yPos, zPos, 1.5)) continue;
+  if (!avoidsHof(xPos, yPos, zPos)) continue;
+
+  const curved = new THREE.Mesh(
+    createCurvedCisterna(radius, Math.PI * 0.8, height, 4 + Math.random() * 3, 0.12),
+    rerMaterial.clone()
+  );
+
+  curved.position.set(xPos, yPos, zPos);
+  curved.rotation.y = angle + Math.PI / 2;
+
+  curved.userData = { organelle: 'RER' };
+  clickableMeshes.push(curved);
+  rerGroup.add(curved);
+  rerSheets.push(curved);
+}
+
+// Vertical sheet walls (connecting stacks) - spread wider, avoid hof
+for (let v = 0; v < 10; v++) {
+  const xPos = -5.5 + v * 0.9 + (Math.random() - 0.5) * 0.5;
+  const zPos = (Math.random() - 0.5) * 8;
+  const yPos = (Math.random() - 0.5) * 2;
+
+  if (!isInsideCell(xPos, yPos, zPos, 1.5)) continue;
+  if (!avoidsNucleus(xPos, yPos, zPos, 1.2)) continue;
+  if (!avoidsHof(xPos, yPos, zPos)) continue;
+
+  const vertSheet = new THREE.Mesh(
+    createERSheet(3.5, 5.0, 2, 3, 0.2),
+    rerMaterial.clone()
+  );
+
+  vertSheet.position.set(xPos, yPos, zPos);
+  vertSheet.rotation.y = Math.random() * Math.PI;
+
+  vertSheet.userData = { organelle: 'RER' };
+  clickableMeshes.push(vertSheet);
+  rerGroup.add(vertSheet);
+  rerSheets.push(vertSheet);
+}
+
+// Legacy torus function for regenerate (keeping compatibility)
+function createConvolutedTorus(majorRadius, minorRadius, folds, amplitude, smoothness = 80) {
+  const tubularSegments = Math.max(80, smoothness * 2);
+  const radialSegments = Math.max(12, Math.floor(smoothness / 5));
   const geometry = new THREE.TorusGeometry(majorRadius, minorRadius, radialSegments, tubularSegments);
   const positions = geometry.attributes.position;
 
@@ -547,93 +1048,31 @@ function createConvolutedTorus(majorRadius, minorRadius, folds, amplitude) {
     let x = positions.getX(i);
     let y = positions.getY(i);
     let z = positions.getZ(i);
-
-    // Get angle around torus
     const angle = Math.atan2(z, x);
-
-    // Add folding/convolutions
-    const foldOffset = Math.sin(angle * folds) * amplitude;
-    const foldOffset2 = Math.cos(angle * folds * 1.5 + 1) * amplitude * 0.5;
-
-    // Apply fold as radial displacement
+    const fold1 = Math.sin(angle * folds) * amplitude;
+    const fold2 = Math.sin(angle * folds * 0.5 + 1.2) * amplitude * 0.3;
+    const totalRadialFold = fold1 + fold2;
     const radialDir = Math.sqrt(x * x + z * z);
     if (radialDir > 0.01) {
-      x += (x / radialDir) * foldOffset;
-      z += (z / radialDir) * foldOffset;
+      x += (x / radialDir) * totalRadialFold;
+      z += (z / radialDir) * totalRadialFold;
     }
-
-    // Add vertical waviness
-    y += foldOffset2;
-
-    // Add some noise for organic feel
-    x += (Math.random() - 0.5) * 0.02;
-    y += (Math.random() - 0.5) * 0.02;
-    z += (Math.random() - 0.5) * 0.02;
-
+    y += Math.cos(angle * folds * 0.7 + 0.5) * amplitude * 0.4;
     positions.setXYZ(i, x, y, z);
   }
-
   geometry.computeVertexNormals();
   return geometry;
 }
 
-// Generate RER as convoluted torus layers filling the cell
-const rerTori = [];
-
-// Main RER network - multiple convoluted layers
-const rerLayers = [
-  // Central layers (avoiding nucleus on right side)
-  { pos: [-2.0, 0, 0], radius: 2.5, tube: 0.15, folds: 8, amp: 0.3, rot: [0, 0, 0] },
-  { pos: [-2.0, 0.4, 0], radius: 2.8, tube: 0.12, folds: 10, amp: 0.25, rot: [0.1, 0.2, 0] },
-  { pos: [-2.0, -0.4, 0], radius: 2.3, tube: 0.14, folds: 7, amp: 0.35, rot: [-0.1, -0.1, 0] },
-
-  // Upper region
-  { pos: [-1.5, 2.0, 0], radius: 2.0, tube: 0.12, folds: 9, amp: 0.2, rot: [0.3, 0, 0.1] },
-  { pos: [-2.5, 2.5, 0.5], radius: 1.8, tube: 0.1, folds: 6, amp: 0.25, rot: [0.4, 0.2, 0] },
-
-  // Lower region
-  { pos: [-1.5, -2.0, 0], radius: 2.0, tube: 0.12, folds: 8, amp: 0.22, rot: [-0.3, 0, -0.1] },
-  { pos: [-2.5, -2.5, -0.5], radius: 1.6, tube: 0.11, folds: 7, amp: 0.28, rot: [-0.4, -0.2, 0] },
-
-  // Front/back fill
-  { pos: [-1.0, 0.5, 2.5], radius: 1.5, tube: 0.1, folds: 6, amp: 0.2, rot: [0.5, 0, 0.3] },
-  { pos: [-1.0, -0.5, -2.5], radius: 1.5, tube: 0.1, folds: 6, amp: 0.2, rot: [-0.5, 0, -0.3] },
-  { pos: [-2.0, 1.0, 2.0], radius: 1.3, tube: 0.09, folds: 5, amp: 0.18, rot: [0.3, 0.3, 0.2] },
-  { pos: [-2.0, -1.0, -2.0], radius: 1.3, tube: 0.09, folds: 5, amp: 0.18, rot: [-0.3, -0.3, -0.2] },
-
-  // Outer edges (smaller, more folded)
-  { pos: [-4.0, 0, 1.5], radius: 1.2, tube: 0.08, folds: 8, amp: 0.15, rot: [0.2, 0.8, 0] },
-  { pos: [-4.0, 0, -1.5], radius: 1.2, tube: 0.08, folds: 8, amp: 0.15, rot: [-0.2, -0.8, 0] },
-  { pos: [-4.5, 1.5, 0], radius: 1.0, tube: 0.07, folds: 6, amp: 0.12, rot: [0.5, 0.5, 0.2] },
-  { pos: [-4.5, -1.5, 0], radius: 1.0, tube: 0.07, folds: 6, amp: 0.12, rot: [-0.5, -0.5, -0.2] },
-
-  // Near Golgi (connecting to packaging)
-  { pos: [0.5, 0.5, 1.0], radius: 0.8, tube: 0.06, folds: 5, amp: 0.1, rot: [0.2, 0.5, 0.1] },
-  { pos: [0.5, -0.5, -1.0], radius: 0.8, tube: 0.06, folds: 5, amp: 0.1, rot: [-0.2, -0.5, -0.1] },
-];
-
-rerLayers.forEach((layer, idx) => {
-  // Check if center is inside cell and avoids nucleus
-  if (!isInsideCell(layer.pos[0], layer.pos[1], layer.pos[2], 1.0)) return;
-  if (!avoidsNucleus(layer.pos[0], layer.pos[1], layer.pos[2], 1.0)) return;
-
-  const geometry = createConvolutedTorus(layer.radius, layer.tube, layer.folds, layer.amp);
-  const torus = new THREE.Mesh(geometry, rerMaterial.clone());
-
-  torus.position.set(layer.pos[0], layer.pos[1], layer.pos[2]);
-  torus.rotation.set(layer.rot[0], layer.rot[1], layer.rot[2]);
-
-  torus.userData = { organelle: 'RER' };
-  clickableMeshes.push(torus);
-  rerGroup.add(torus);
-  rerTori.push(torus);
-});
+// Placeholder for rerTori (for regenerate compatibility)
+const rerTori = rerSheets;
+const rerLayers = [];
 
 // ============================================
 // INSTANCED RIBOSOMES ON RER (studded appearance)
 // ============================================
-const rerRibosomeCount = 2000;
-const rerRibosomeGeom = new THREE.SphereGeometry(0.04, 6, 6);
+const rerRibosomeCount = 1000;
+const rerRibosomeGeom = new THREE.SphereGeometry(0.02, 4, 4);
 const rerRibosomeMat = new THREE.MeshStandardMaterial({
   color: 0x2299aa,
   roughness: 0.5,
@@ -739,51 +1178,147 @@ organelleGroups['RER'] = {
 };
 
 // ============================================
-// MITOCHONDRIA (with Cristae) - Constrained inside cell
+// MITOCHONDRIA (with Cristae & Internal Structure)
 // ============================================
 const mitochondriaGroup = new THREE.Group();
-const mitoCount = 35;
+const mitoCount = 60; // Plasma cells have high energy demands for antibody production
 
+// Outer membrane - semi-transparent
 const mitoOuterMat = new THREE.MeshPhysicalMaterial({
   color: COLORS.MITOCHONDRIA,
-  roughness: 0.4,
+  roughness: 0.3,
   transparent: true,
-  opacity: 0.8,
-  clearcoat: 0.3
+  opacity: 0.5, // 50% opacity as requested
+  clearcoat: 0.4,
+  side: THREE.DoubleSide
 });
 
-// Use instancing for performance
-const mitoGeom = new THREE.CapsuleGeometry(0.2, 0.8, 4, 8);
-const mitoInstancedMesh = new THREE.InstancedMesh(mitoGeom, mitoOuterMat, mitoCount);
-mitoInstancedMesh.userData = { organelle: 'Mitochondria' };
-clickableMeshes.push(mitoInstancedMesh);
+// Inner membrane - slightly darker
+const mitoInnerMat = new THREE.MeshPhysicalMaterial({
+  color: 0xCC4030,
+  roughness: 0.4,
+  transparent: true,
+  opacity: 0.6,
+  side: THREE.DoubleSide
+});
 
-const dummy = new THREE.Object3D();
+// Cristae material - folded inner membrane
+const cristaeMat = new THREE.MeshStandardMaterial({
+  color: 0xDD5544,
+  roughness: 0.5,
+  transparent: true,
+  opacity: 0.7,
+  side: THREE.DoubleSide
+});
+
+// Matrix material (inner fluid)
+const matrixMat = new THREE.MeshBasicMaterial({
+  color: 0xFF8866,
+  transparent: true,
+  opacity: 0.25
+});
+
+// Create a single detailed mitochondrion
+// Real mitochondria: 0.5-1μm diameter × 1-7μm length; nucleus ~6μm diameter
+// Real ratio: nucleus/mito diameter = 6/0.75 = 8:1
+// Scaled: nucleus radius 2.4 (diam 4.8), so mito diameter ~0.6 (radius 0.3)
+// Length typically 2-4x diameter, so length ~1.2-2.0
+function createMitochondrion(scale = 1) {
+  const mitoUnit = new THREE.Group();
+
+  // Outer membrane (capsule) - properly proportioned to nucleus (8:1 ratio)
+  const outerGeom = new THREE.CapsuleGeometry(0.30 * scale, 1.0 * scale, 8, 16);
+  const outer = new THREE.Mesh(outerGeom, mitoOuterMat.clone());
+  outer.userData = { organelle: 'Mitochondria' };
+  mitoUnit.add(outer);
+
+  // Inner membrane (slightly smaller capsule)
+  const innerGeom = new THREE.CapsuleGeometry(0.26 * scale, 0.9 * scale, 8, 16);
+  const inner = new THREE.Mesh(innerGeom, mitoInnerMat.clone());
+  mitoUnit.add(inner);
+
+  // Matrix (innermost, opaque core)
+  const matrixGeom = new THREE.CapsuleGeometry(0.20 * scale, 0.7 * scale, 4, 8);
+  const matrix = new THREE.Mesh(matrixGeom, matrixMat.clone());
+  mitoUnit.add(matrix);
+
+  // Cristae - folded inner membrane sheets
+  const cristaeCount = 4 + Math.floor(Math.random() * 3);
+  for (let c = 0; c < cristaeCount; c++) {
+    const t = (c + 0.5) / cristaeCount; // 0 to 1 along length
+    const yPos = (t - 0.5) * 0.8 * scale;
+
+    // Create wavy sheet using PlaneGeometry with vertex displacement
+    const sheetWidth = 0.4 * scale * (1 - Math.abs(t - 0.5) * 0.5);
+    const sheetHeight = 0.12 * scale;
+    const sheetGeom = new THREE.PlaneGeometry(sheetWidth, sheetHeight, 12, 4);
+
+    // Add waves to the sheet
+    const positions = sheetGeom.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      // Sinusoidal folding
+      const wave = Math.sin(x * 12) * 0.03 * scale;
+      positions.setZ(i, wave);
+    }
+    sheetGeom.computeVertexNormals();
+
+    const crista = new THREE.Mesh(sheetGeom, cristaeMat.clone());
+    crista.position.y = yPos;
+    crista.rotation.x = Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+    crista.rotation.z = (Math.random() - 0.5) * 0.5;
+    mitoUnit.add(crista);
+
+    // Add a second crista at angle for depth
+    const crista2 = crista.clone();
+    crista2.rotation.y = Math.PI / 3;
+    crista2.position.x = (Math.random() - 0.5) * 0.08 * scale;
+    mitoUnit.add(crista2);
+  }
+
+  return mitoUnit;
+}
+
+// Place mitochondria throughout cell
+const mitoPositions = [];
 let mitoIdx = 0;
-for (let attempts = 0; attempts < mitoCount * 3 && mitoIdx < mitoCount; attempts++) {
-  const x = (Math.random() - 0.5) * 10;
-  const y = (Math.random() - 0.5) * 10;
-  const z = (Math.random() - 0.5) * 10;
+for (let attempts = 0; attempts < mitoCount * 5 && mitoIdx < mitoCount; attempts++) {
+  const x = (Math.random() - 0.5) * 11;
+  const y = (Math.random() - 0.5) * 11;
+  const z = (Math.random() - 0.5) * 11;
 
-  // Must be inside cell and avoid nucleus
-  if (isInsideCell(x, y, z, 1.0) && avoidsNucleus(x, y, z, 0.5)) {
-    dummy.position.set(x, y, z);
-    dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-    dummy.scale.setScalar(0.8 + Math.random() * 0.4);
-    dummy.updateMatrix();
-    mitoInstancedMesh.setMatrixAt(mitoIdx, dummy.matrix);
+  // Larger margin since mitochondria are bigger now
+  if (isInsideCell(x, y, z, 1.8) && avoidsNucleus(x, y, z, 1.2)) {
+    const scale = 0.5 + Math.random() * 0.4; // Smaller scale range since base size is larger
+    const mito = createMitochondrion(scale);
+
+    mito.position.set(x, y, z);
+    mito.rotation.set(
+      Math.random() * Math.PI,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI * 0.5
+    );
+
+    // Make outer membrane clickable
+    mito.children[0].userData = { organelle: 'Mitochondria' };
+    clickableMeshes.push(mito.children[0]);
+
+    mitochondriaGroup.add(mito);
+    mitoPositions.push({ x, y, z });
     mitoIdx++;
   }
 }
-mitoInstancedMesh.instanceMatrix.needsUpdate = true;
-mitochondriaGroup.add(mitoInstancedMesh);
 
 cellGroup.add(mitochondriaGroup);
 organelleGroups['Mitochondria'] = {
   group: mitochondriaGroup,
-  meshes: [mitoInstancedMesh],
+  meshes: mitochondriaGroup.children.map(m => m.children[0]),
   labelOffset: new THREE.Vector3(-3, -2, 2)
 };
+
+// Shared dummy object for instanced mesh positioning
+const dummy = new THREE.Object3D();
 
 // ============================================
 // LYSOSOMES - Constrained inside cell
@@ -830,7 +1365,7 @@ organelleGroups['Lysosomes'] = {
 // FREE RIBOSOMES - Constrained inside cell
 // ============================================
 const ribosomesGroup = new THREE.Group();
-const riboCount = 400;
+const riboCount = 200;
 
 const riboMat = new THREE.MeshBasicMaterial({
   color: COLORS.FREE_RIBOSOME,
@@ -838,7 +1373,7 @@ const riboMat = new THREE.MeshBasicMaterial({
   opacity: 0.6
 });
 
-const freeRiboGeom = new THREE.DodecahedronGeometry(0.05, 0);
+const freeRiboGeom = new THREE.DodecahedronGeometry(0.012, 0); // Smaller than RER ribosomes
 const freeRiboInstancedMesh = new THREE.InstancedMesh(freeRiboGeom, riboMat, riboCount);
 freeRiboInstancedMesh.userData = { organelle: 'Ribosomes' };
 clickableMeshes.push(freeRiboInstancedMesh);
@@ -1010,6 +1545,13 @@ const zoomOutBtn = document.getElementById('zoom-out-btn');
 const labelContainer = document.getElementById('label-container');
 const organelleGrid = document.getElementById('organelle-grid');
 
+// Organelle info popup elements
+const organellePopup = document.getElementById('organelle-popup');
+const popupTitle = document.getElementById('popup-title');
+const popupDescription = document.getElementById('popup-description');
+const popupFunction = document.getElementById('popup-function');
+const closePopupBtn = document.getElementById('close-popup-btn');
+
 // Populate organelle grid
 Object.entries(INFO_CONTENT).forEach(([key, data]) => {
   if (key === 'Cell') return;
@@ -1047,6 +1589,11 @@ infoModal.addEventListener('click', (e) => {
   }
 });
 
+// Close organelle popup
+closePopupBtn.addEventListener('click', () => {
+  organellePopup.classList.add('hidden');
+});
+
 // Reset button
 resetBtn.addEventListener('click', () => {
   setActiveFeature(null);
@@ -1064,6 +1611,242 @@ zoomOutBtn.addEventListener('click', () => {
 });
 
 // ============================================
+// ER PARAMETER CONTROLS
+// ============================================
+const erPanel = document.getElementById('er-panel');
+const erSettingsBtn = document.getElementById('er-settings-btn');
+const closeErPanelBtn = document.getElementById('close-er-panel');
+const regenerateErBtn = document.getElementById('regenerate-er-btn');
+
+const foldSlider = document.getElementById('fold-slider');
+const ampSlider = document.getElementById('amp-slider');
+const smoothSlider = document.getElementById('smooth-slider');
+const tubeSlider = document.getElementById('tube-slider');
+const opacitySlider = document.getElementById('opacity-slider');
+const membraneSlider = document.getElementById('membrane-slider');
+
+const foldValue = document.getElementById('fold-value');
+const ampValue = document.getElementById('amp-value');
+const smoothValue = document.getElementById('smooth-value');
+const tubeValue = document.getElementById('tube-value');
+const opacityValue = document.getElementById('opacity-value');
+const membraneValue = document.getElementById('membrane-value');
+
+// ER Parameters state
+const erParams = {
+  folds: 34,
+  amplitude: 0.82,
+  smoothness: 48,
+  tubeThickness: 0.40,
+  opacity: 0.20,        // 20% ER opacity
+  membraneOpacity: 0.10 // 10% cell membrane opacity
+};
+
+// Toggle panel
+erSettingsBtn.addEventListener('click', () => {
+  erPanel.classList.toggle('hidden');
+});
+
+closeErPanelBtn.addEventListener('click', () => {
+  erPanel.classList.add('hidden');
+});
+
+// Update display values
+foldSlider.addEventListener('input', (e) => {
+  erParams.folds = parseInt(e.target.value);
+  foldValue.textContent = erParams.folds;
+});
+
+ampSlider.addEventListener('input', (e) => {
+  erParams.amplitude = parseInt(e.target.value) / 100;
+  ampValue.textContent = erParams.amplitude.toFixed(2);
+});
+
+smoothSlider.addEventListener('input', (e) => {
+  erParams.smoothness = parseInt(e.target.value);
+  smoothValue.textContent = erParams.smoothness;
+});
+
+tubeSlider.addEventListener('input', (e) => {
+  erParams.tubeThickness = parseInt(e.target.value) / 100;
+  tubeValue.textContent = erParams.tubeThickness.toFixed(2);
+});
+
+opacitySlider.addEventListener('input', (e) => {
+  erParams.opacity = parseInt(e.target.value) / 100;
+  opacityValue.textContent = erParams.opacity.toFixed(2);
+  // Live update ER opacity
+  rerGroup.traverse((child) => {
+    if (child.material && child.material.opacity !== undefined) {
+      child.material.opacity = erParams.opacity;
+    }
+  });
+});
+
+membraneSlider.addEventListener('input', (e) => {
+  erParams.membraneOpacity = parseInt(e.target.value) / 100;
+  membraneValue.textContent = erParams.membraneOpacity.toFixed(2);
+  // Live update membrane opacity
+  membraneMaterial.opacity = erParams.membraneOpacity;
+  membraneRimMaterial.opacity = erParams.membraneOpacity * 0.3;
+  membraneWireMaterial.opacity = erParams.membraneOpacity * 0.6;
+});
+
+// Regenerate ER with new parameters
+regenerateErBtn.addEventListener('click', () => {
+  regenerateER(erParams);
+});
+
+// Function to regenerate ER with new parameters
+function regenerateER(params) {
+  // Remove old ER meshes
+  while (rerGroup.children.length > 0) {
+    const child = rerGroup.children[0];
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      if (Array.isArray(child.material)) {
+        child.material.forEach(m => m.dispose());
+      } else {
+        child.material.dispose();
+      }
+    }
+    rerGroup.remove(child);
+  }
+
+  // Remove old from clickables
+  const rerClickableIndices = [];
+  clickableMeshes.forEach((mesh, idx) => {
+    if (mesh.userData && mesh.userData.organelle === 'RER') {
+      rerClickableIndices.push(idx);
+    }
+  });
+  for (let i = rerClickableIndices.length - 1; i >= 0; i--) {
+    clickableMeshes.splice(rerClickableIndices[i], 1);
+  }
+
+  // Create new ER material with updated opacity
+  const newRerMaterial = new THREE.MeshPhysicalMaterial({
+    color: COLORS.RER,
+    roughness: 0.6,
+    metalness: 0.05,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: params.opacity,
+    emissive: 0x115555,
+    emissiveIntensity: 0.2,
+    bumpMap: ribosomeBumpTexture,
+    bumpScale: 0.15
+  });
+
+  // Generate new tori with current parameters
+  const newRerTori = [];
+  const baseRerLayers = [
+    { pos: [-2.0, 0, 0], radius: 2.5, rot: [0, 0, 0] },
+    { pos: [-2.0, 0.4, 0], radius: 2.8, rot: [0.1, 0.2, 0] },
+    { pos: [-2.0, -0.4, 0], radius: 2.3, rot: [-0.1, -0.1, 0] },
+    { pos: [-1.5, 2.0, 0], radius: 2.0, rot: [0.3, 0, 0.1] },
+    { pos: [-2.5, 2.5, 0.5], radius: 1.8, rot: [0.4, 0.2, 0] },
+    { pos: [-1.5, -2.0, 0], radius: 2.0, rot: [-0.3, 0, -0.1] },
+    { pos: [-2.5, -2.5, -0.5], radius: 1.6, rot: [-0.4, -0.2, 0] },
+    { pos: [-1.0, 0.5, 2.5], radius: 1.5, rot: [0.5, 0, 0.3] },
+    { pos: [-1.0, -0.5, -2.5], radius: 1.5, rot: [-0.5, 0, -0.3] },
+    { pos: [-2.0, 1.0, 2.0], radius: 1.3, rot: [0.3, 0.3, 0.2] },
+    { pos: [-2.0, -1.0, -2.0], radius: 1.3, rot: [-0.3, -0.3, -0.2] },
+    { pos: [-4.0, 0, 1.5], radius: 1.2, rot: [0.2, 0.8, 0] },
+    { pos: [-4.0, 0, -1.5], radius: 1.2, rot: [-0.2, -0.8, 0] },
+    { pos: [-4.5, 1.5, 0], radius: 1.0, rot: [0.5, 0.5, 0.2] },
+    { pos: [-4.5, -1.5, 0], radius: 1.0, rot: [-0.5, -0.5, -0.2] },
+    { pos: [0.5, 0.5, 1.0], radius: 0.8, rot: [0.2, 0.5, 0.1] },
+    { pos: [0.5, -0.5, -1.0], radius: 0.8, rot: [-0.2, -0.5, -0.1] },
+  ];
+
+  baseRerLayers.forEach((layer) => {
+    if (!isInsideCell(layer.pos[0], layer.pos[1], layer.pos[2], 1.0)) return;
+    if (!avoidsNucleus(layer.pos[0], layer.pos[1], layer.pos[2], 1.0)) return;
+
+    const geometry = createConvolutedTorus(layer.radius, params.tubeThickness, params.folds, params.amplitude, params.smoothness);
+    const torus = new THREE.Mesh(geometry, newRerMaterial.clone());
+
+    torus.position.set(layer.pos[0], layer.pos[1], layer.pos[2]);
+    torus.rotation.set(layer.rot[0], layer.rot[1], layer.rot[2]);
+
+    torus.userData = { organelle: 'RER' };
+    clickableMeshes.push(torus);
+    rerGroup.add(torus);
+    newRerTori.push(torus);
+  });
+
+  // Recreate ribosomes on new tori
+  const newRiboCount = 2000;
+  const newRiboGeom = new THREE.SphereGeometry(0.02, 4, 4);
+  const newRiboMat = new THREE.MeshStandardMaterial({
+    color: 0x2299aa,
+    roughness: 0.5,
+    emissive: 0x115566,
+    emissiveIntensity: 0.3
+  });
+
+  const newRiboInstances = new THREE.InstancedMesh(newRiboGeom, newRiboMat, newRiboCount);
+  const riboDummyNew = new THREE.Object3D();
+
+  let newRiboIdx = 0;
+  newRerTori.forEach((torus) => {
+    torus.updateMatrixWorld();
+    const torusMatrix = torus.matrixWorld;
+    const ribosPerTorus = Math.floor(newRiboCount / newRerTori.length);
+    const positions = torus.geometry.attributes.position;
+
+    for (let r = 0; r < ribosPerTorus && newRiboIdx < newRiboCount; r++) {
+      const vertIdx = Math.floor(Math.random() * positions.count);
+      const localPos = new THREE.Vector3(
+        positions.getX(vertIdx),
+        positions.getY(vertIdx),
+        positions.getZ(vertIdx)
+      );
+      localPos.normalize().multiplyScalar(localPos.length() + 0.05);
+      const worldPos = localPos.clone().applyMatrix4(torusMatrix);
+
+      if (isInsideCell(worldPos.x, worldPos.y, worldPos.z, 0.3)) {
+        riboDummyNew.position.copy(worldPos);
+        riboDummyNew.scale.setScalar(0.7 + Math.random() * 0.6);
+        riboDummyNew.updateMatrix();
+        newRiboInstances.setMatrixAt(newRiboIdx, riboDummyNew.matrix);
+        newRiboIdx++;
+      }
+    }
+  });
+
+  newRiboInstances.instanceMatrix.needsUpdate = true;
+  newRiboInstances.userData = { organelle: 'RER' };
+  clickableMeshes.push(newRiboInstances);
+  rerGroup.add(newRiboInstances);
+
+  console.log(`ER regenerated: folds=${params.folds}, amp=${params.amplitude}, tube=${params.tubeThickness}`);
+}
+
+// ============================================
+// ORGANELLE INFO POPUP
+// ============================================
+function showOrganellePopup(feature) {
+  if (!feature || !INFO_CONTENT[feature]) {
+    organellePopup.classList.add('hidden');
+    return;
+  }
+
+  const info = INFO_CONTENT[feature];
+  popupTitle.textContent = info.title;
+  popupDescription.textContent = info.description;
+  popupFunction.textContent = info.function;
+
+  // Fixed position on left side - no positioning needed
+  organellePopup.classList.remove('hidden');
+}
+
+function hideOrganellePopup() {
+  organellePopup.classList.add('hidden');
+}
+
+// ============================================
 // SELECTION & GHOST MODE
 // ============================================
 function setActiveFeature(feature) {
@@ -1076,6 +1859,11 @@ function setActiveFeature(feature) {
   // Update hint visibility
   hintContainer.style.opacity = feature ? '0' : '1';
   hintContainer.style.transform = feature ? 'translate(-50%, 40px)' : 'translate(-50%, 0)';
+
+  // Hide popup when deselecting
+  if (!feature) {
+    hideOrganellePopup();
+  }
 
   // Update membrane opacity
   membraneMaterial.opacity = feature ? 0.02 : 0.15;
@@ -1232,6 +2020,8 @@ function onMouseClick(event) {
 
     if (organelle) {
       setActiveFeature(organelle);
+      // Show popup with organelle info on left side panel
+      showOrganellePopup(organelle);
     }
   } else {
     // Clicked empty space - deselect
@@ -1410,4 +2200,7 @@ window.addEventListener('resize', () => {
 
 animate();
 
-console.log('BlenderCell loaded - Plasma Cell with all features:', Object.keys(organelleGroups));
+// Apply user's preferred ER parameters at launch
+regenerateER(erParams);
+
+console.log('PlasmaCell loaded - The Antibody Story:', Object.keys(organelleGroups));
