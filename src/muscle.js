@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import {
+  createMitochondriaField,
+  generateMuscleMitochondriaPositions,
+  createMuscleNucleus,
+  ORGANELLE_COLORS
+} from './organelles/index.js';
 
 // ============================================
 // SKELETAL MUSCLE FIBER - "The Power Generator"
@@ -33,8 +39,8 @@ let zLines = [];
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0612);
-  scene.fog = new THREE.Fog(0x0a0612, 25, 80);
+  scene.background = new THREE.Color(0x1a1018); // Warmer, brighter background
+  scene.fog = new THREE.Fog(0x1a1018, 40, 100); // Push fog way back
 
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 8, 20);
@@ -66,23 +72,37 @@ function init() {
 // ============================================
 
 function setupLighting() {
-  const ambient = new THREE.AmbientLight(0x333333, 0.8);
+  // Much brighter ambient light
+  const ambient = new THREE.AmbientLight(0x555566, 2.0);
   scene.add(ambient);
 
-  const mainLight = new THREE.DirectionalLight(0xfff0f5, 1.2);
+  // Strong main light
+  const mainLight = new THREE.DirectionalLight(0xfff0f5, 2.5);
   mainLight.position.set(10, 15, 10);
   scene.add(mainLight);
 
-  const fillLight = new THREE.DirectionalLight(0xec4899, 0.3);
+  // Pink fill for muscle aesthetic
+  const fillLight = new THREE.DirectionalLight(0xec4899, 1.0);
   fillLight.position.set(-10, 0, -5);
   scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0x22d3ee, 0.3);
+  // Cyan rim light for contrast
+  const rimLight = new THREE.DirectionalLight(0x22d3ee, 0.8);
   rimLight.position.set(0, -5, 10);
   scene.add(rimLight);
 
-  // Subtle glow from mitochondria
-  const pointLight = new THREE.PointLight(0xa855f7, 0.2, 20);
+  // Back light
+  const backLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  backLight.position.set(-5, 10, -15);
+  scene.add(backLight);
+
+  // Bottom fill
+  const bottomLight = new THREE.DirectionalLight(0xffddee, 0.6);
+  bottomLight.position.set(0, -10, 0);
+  scene.add(bottomLight);
+
+  // Strong glow from mitochondria
+  const pointLight = new THREE.PointLight(0xa855f7, 1.0, 30);
   pointLight.position.set(0, 0, 0);
   scene.add(pointLight);
 }
@@ -346,14 +366,17 @@ function createThinFilaments(parent, length, sarcomereLength) {
 // ============================================
 
 function createSarcolemma() {
+  // More visible membrane with subtle glow
   const membraneMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xfda4af,
     roughness: 0.3,
     metalness: 0.0,
-    transmission: 0.7,
-    thickness: 0.5,
+    transmission: 0.5,
+    thickness: 0.3,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.25, // More visible
+    emissive: 0xff8899,
+    emissiveIntensity: 0.1,
     side: THREE.DoubleSide,
   });
 
@@ -381,120 +404,60 @@ function createSarcolemma() {
 
 // ============================================
 // NUCLEI (Peripheral, multinucleated)
+// Using shared organelle library
 // ============================================
 
 function createNuclei() {
-  const nucleusMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x6366f1,
-    roughness: 0.3,
-    metalness: 0.0,
-    emissive: 0x312e81,
-    emissiveIntensity: 0.3,
-    transparent: true,
-    opacity: 0.9,
-  });
-
   const nucleusCount = 8;
   for (let i = 0; i < nucleusCount; i++) {
-    const geometry = new THREE.SphereGeometry(0.6, 16, 16);
-    geometry.scale(1.5, 0.8, 0.8); // Elongated
-
-    const nucleus = new THREE.Mesh(geometry, nucleusMaterial);
-
     // Position at periphery (subsarcolemmal)
     const angle = (i / nucleusCount) * Math.PI * 2;
     const xPos = (i - (nucleusCount - 1) / 2) * 2.2;
 
-    nucleus.position.set(
-      xPos,
-      Math.cos(angle) * 6,
-      Math.sin(angle) * 6
-    );
-    nucleus.rotation.z = Math.PI / 2;
+    const nucleus = createMuscleNucleus({
+      position: new THREE.Vector3(xPos, Math.cos(angle) * 6, Math.sin(angle) * 6),
+      length: 2.0,
+      radius: 0.5,
+      organelleName: 'Nucleus'
+    });
 
     muscleGroup.add(nucleus);
-
-    // Nucleolus
-    const nucleolusGeometry = new THREE.SphereGeometry(0.15, 8, 8);
-    const nucleolusMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1e1b4b,
-      roughness: 0.5,
-    });
-    const nucleolus = new THREE.Mesh(nucleolusGeometry, nucleolusMaterial);
-    nucleolus.position.copy(nucleus.position);
-    muscleGroup.add(nucleolus);
   }
 }
 
 // ============================================
 // MITOCHONDRIA (Between myofibrils)
+// Using shared organelle library
 // ============================================
 
 function createMitochondria() {
-  const mitoMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xa855f7,
-    roughness: 0.4,
-    metalness: 0.0,
-    emissive: 0x581c87,
-    emissiveIntensity: 0.4,
-    transparent: true,
-    opacity: 0.85,
+  // Research-based: Muscle fibers have 300-600 mitochondria
+  // Occupying 2-10% of cell volume depending on fiber type
+  // Arranged: 60% between myofibrils, 25% near Z-lines, 15% subsarcolemmal
+
+  // Generate positions using the shared library
+  const positions = generateMuscleMitochondriaPositions({
+    count: 180,
+    fiberLength: 18,
+    fiberRadius: 6,
+    intermyofibrillarRatio: 0.6,
+    subsarcolemmalRatio: 0.15,
+    zLineRatio: 0.25,
+    sarcomereLength: 3.0
   });
 
-  // Position mitochondria in the spaces between myofibrils
-  const mitoPositions = [
-    // Between myofibrils
-    { x: -6, y: 1.25, z: 0 },
-    { x: -3, y: 1.25, z: 0.5 },
-    { x: 0, y: 1.25, z: -0.3 },
-    { x: 3, y: 1.25, z: 0.2 },
-    { x: 6, y: 1.25, z: -0.4 },
-    { x: -6, y: -1.25, z: 0.3 },
-    { x: -3, y: -1.25, z: -0.2 },
-    { x: 0, y: -1.25, z: 0.4 },
-    { x: 3, y: -1.25, z: -0.5 },
-    { x: 6, y: -1.25, z: 0.1 },
-    // Near Z-lines
-    { x: -7.5, y: 0, z: 0.8 },
-    { x: -4.5, y: 0, z: -0.6 },
-    { x: -1.5, y: 0, z: 0.5 },
-    { x: 1.5, y: 0, z: -0.4 },
-    { x: 4.5, y: 0, z: 0.6 },
-    { x: 7.5, y: 0, z: -0.3 },
-  ];
-
-  mitoPositions.forEach((pos, i) => {
-    const geometry = new THREE.CapsuleGeometry(0.2, 0.6, 8, 12);
-    const mito = new THREE.Mesh(geometry, mitoMaterial.clone());
-
-    mito.position.set(pos.x, pos.y, pos.z);
-    mito.rotation.set(
-      Math.random() * 0.5,
-      Math.random() * Math.PI,
-      Math.PI / 2 + Math.random() * 0.3
-    );
-
-    // Add cristae (inner folds) visualization
-    addCristae(mito);
-
-    muscleGroup.add(mito);
-  });
-}
-
-function addCristae(mito) {
-  const cristaeMaterial = new THREE.MeshBasicMaterial({
-    color: 0x7e22ce,
-    transparent: true,
-    opacity: 0.5,
+  // Create mitochondria using the shared factory
+  const mitochondriaGroup = createMitochondriaField(positions, {
+    lengthRange: [0.5, 0.9],
+    radiusRange: [0.12, 0.22],
+    includeCristae: true,
+    includeGlow: true,
+    organelleName: 'Mitochondria'
   });
 
-  for (let i = 0; i < 4; i++) {
-    const geometry = new THREE.PlaneGeometry(0.15, 0.35);
-    const cristae = new THREE.Mesh(geometry, cristaeMaterial);
-    cristae.position.y = (i - 1.5) * 0.12;
-    cristae.rotation.y = Math.PI / 2;
-    mito.add(cristae);
-  }
+  muscleGroup.add(mitochondriaGroup);
+
+  console.log(`Created ${positions.length} mitochondria using shared library`);
 }
 
 // ============================================
@@ -572,28 +535,74 @@ function createTTubuleSystem() {
 // ============================================
 
 function createEnvironment() {
-  // Background particles (extracellular matrix)
-  const particleCount = 150;
+  // Background sphere for depth
+  const bgGeometry = new THREE.SphereGeometry(60, 32, 32);
+  const bgMaterial = new THREE.MeshBasicMaterial({
+    color: 0x2a1a28,
+    side: THREE.BackSide,
+  });
+  const bgSphere = new THREE.Mesh(bgGeometry, bgMaterial);
+  scene.add(bgSphere);
+
+  // Background particles (extracellular matrix) - more visible
+  const particleCount = 300;
   const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
 
   for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 50;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 30;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+    positions[i * 3] = (Math.random() - 0.5) * 60;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 40;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+
+    // Pink/magenta tissue tones
+    colors[i * 3] = 0.6 + Math.random() * 0.3;     // R
+    colors[i * 3 + 1] = 0.3 + Math.random() * 0.2; // G
+    colors[i * 3 + 2] = 0.4 + Math.random() * 0.3; // B
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    color: 0x4a3048,
-    size: 0.12,
+    size: 0.2,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.6,
+    vertexColors: true,
   });
 
   const particles = new THREE.Points(geometry, material);
   scene.add(particles);
+
+  // Add some collagen fiber bundles in background
+  const collagenMaterial = new THREE.MeshBasicMaterial({
+    color: 0x996688,
+    transparent: true,
+    opacity: 0.3,
+  });
+
+  for (let i = 0; i < 12; i++) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(
+        (Math.random() - 0.5) * 40,
+        (Math.random() - 0.5) * 25,
+        -15 - Math.random() * 20
+      ),
+      new THREE.Vector3(
+        (Math.random() - 0.5) * 40,
+        (Math.random() - 0.5) * 25,
+        -15 - Math.random() * 20
+      ),
+      new THREE.Vector3(
+        (Math.random() - 0.5) * 40,
+        (Math.random() - 0.5) * 25,
+        -15 - Math.random() * 20
+      ),
+    ]);
+    const tubeGeometry = new THREE.TubeGeometry(curve, 20, 0.3 + Math.random() * 0.3, 8, false);
+    const fiber = new THREE.Mesh(tubeGeometry, collagenMaterial);
+    scene.add(fiber);
+  }
 }
 
 // ============================================
