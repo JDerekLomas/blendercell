@@ -225,7 +225,7 @@ function createMacrophage() {
 
   cellBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
   cellBody.userData = { organelle: 'Membrane' };
-  clickableMeshes.push(cellBody);
+  // Don't add membrane to clickableMeshes - it blocks clicks on internal organelles
   macrophageGroup.add(cellBody);
 
   // Create internal structures
