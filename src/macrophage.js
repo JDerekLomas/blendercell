@@ -1,5 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import {
+  createMitochondriaField,
+  generateSphericalMitochondriaPositions,
+  createSimpleGolgi,
+  createSimpleER,
+  createInstancedLysosomes,
+  generateLysosomePositions,
+  getMeshesFromGroup
+} from './organelles/index.js';
 
 // ============================================
 // MACROPHAGE - "The Hunter"
@@ -38,14 +47,66 @@ let isPhagocytosing = false;
 let surfaceRuffles = [];
 let receptors = [];
 
+// Raycaster for click detection
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let clickableMeshes = [];
+let activeOrganelle = null;
+
+// Organelle information for popup
+const organelleInfo = {
+  'Nucleus': {
+    name: 'Nucleus',
+    subtitle: 'Command Center',
+    description: 'The kidney-shaped nucleus is positioned eccentrically in the macrophage. It contains the genetic instructions for producing all the enzymes and receptors needed for phagocytosis. Unlike most cells, macrophages can survive for months in tissues.',
+    color: '#a855f7'
+  },
+  'Lysosomes': {
+    name: 'Lysosomes',
+    subtitle: 'Digestive Factories',
+    description: 'Macrophages contain 40+ lysosomes packed with over 50 different digestive enzymes. After phagocytosis, lysosomes fuse with phagosomes to create phagolysosomes, where pathogens are destroyed by acidic pH and enzymatic attack.',
+    color: '#22c55e'
+  },
+  'Phagosomes': {
+    name: 'Phagosomes',
+    subtitle: 'Capture Vesicles',
+    description: 'These membrane-bound compartments form when the macrophage engulfs a pathogen. They contain partially digested bacteria and debris. Phagosomes mature by fusing with lysosomes to complete the destruction process.',
+    color: '#f59e0b'
+  },
+  'Mitochondria': {
+    name: 'Mitochondria',
+    subtitle: 'Energy Powerhouses',
+    description: 'Phagocytosis is energy-intensive. These organelles produce the ATP needed to extend pseudopods, engulf pathogens, and power the digestive machinery. Macrophages have abundant mitochondria to fuel their hunting activities.',
+    color: '#ef4444'
+  },
+  'Golgi': {
+    name: 'Golgi Apparatus',
+    subtitle: 'Protein Processing',
+    description: 'The Golgi processes and packages digestive enzymes destined for lysosomes. It also modifies surface receptors that help the macrophage recognize pathogens through pattern recognition.',
+    color: '#fbbf24'
+  },
+  'Pseudopods': {
+    name: 'Pseudopods',
+    subtitle: 'Hunting Arms',
+    description: 'These dynamic arm-like extensions allow the macrophage to crawl through tissues and surround prey. Driven by actin polymerization, pseudopods can extend and retract in seconds to capture bacteria.',
+    color: '#d4a574'
+  },
+  'Membrane': {
+    name: 'Cell Membrane',
+    subtitle: 'Active Surface',
+    description: 'The macrophage membrane is covered with pattern recognition receptors (PRRs) that detect bacterial molecules. Surface ruffles increase the membrane area for efficient phagocytosis.',
+    color: '#fda4af'
+  }
+};
+
 // ============================================
 // INITIALIZATION
 // ============================================
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0812);
-  scene.fog = new THREE.Fog(0x0a0812, 20, 60);
+  scene.background = new THREE.Color(0x1a1520); // Brighter purple-tinted background
+  scene.fog = new THREE.Fog(0x1a1520, 30, 80); // Push fog back for better visibility
 
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 5, 15);
@@ -78,25 +139,43 @@ function init() {
 // ============================================
 
 function setupLighting() {
-  const ambient = new THREE.AmbientLight(0x222222, 0.8);
+  // Bright ambient like plasma cell
+  const ambient = new THREE.AmbientLight(0x8899aa, 0.8);
   scene.add(ambient);
 
-  const mainLight = new THREE.DirectionalLight(0xfff5e0, 1.0);
-  mainLight.position.set(5, 10, 5);
-  scene.add(mainLight);
+  // Key light - warm from above-front (like plasma cell)
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  keyLight.position.set(10, 20, 15);
+  scene.add(keyLight);
 
-  const fillLight = new THREE.DirectionalLight(0xeab308, 0.3);
-  fillLight.position.set(-5, 0, -5);
+  // Fill light - cool from left
+  const fillLight = new THREE.DirectionalLight(0x6688cc, 0.6);
+  fillLight.position.set(-20, 5, 0);
   scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0xfef3c7, 0.4);
-  rimLight.position.set(0, -5, 5);
+  // Warm fill from right
+  const warmFill = new THREE.DirectionalLight(0xeab308, 0.6);
+  warmFill.position.set(15, 0, -5);
+  scene.add(warmFill);
+
+  // Rim light - warm accent from behind
+  const rimLight = new THREE.DirectionalLight(0xffaa66, 0.4);
+  rimLight.position.set(0, -5, -20);
   scene.add(rimLight);
 
-  // Subtle glow
-  const pointLight = new THREE.PointLight(0xeab308, 0.3, 20);
-  pointLight.position.set(0, 0, 0);
-  scene.add(pointLight);
+  // INTERIOR GLOW - key for seeing inside (like plasma cell)
+  const innerLight = new THREE.PointLight(0xffdd88, 1.2, 15);
+  innerLight.position.set(0, 0, 0);
+  scene.add(innerLight);
+
+  // Second interior light for better coverage
+  const innerLight2 = new THREE.PointLight(0xeab308, 0.8, 12);
+  innerLight2.position.set(1, 0.5, 0);
+  scene.add(innerLight2);
+
+  // Hemisphere light for natural feel
+  const hemiLight = new THREE.HemisphereLight(0xffffee, 0x445544, 0.5);
+  scene.add(hemiLight);
 }
 
 // ============================================
@@ -155,6 +234,8 @@ function createMacrophage() {
   });
 
   cellBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  cellBody.userData = { organelle: 'Membrane' };
+  clickableMeshes.push(cellBody);
   macrophageGroup.add(cellBody);
 
   // Create internal structures
@@ -241,6 +322,15 @@ function createNucleus() {
   nucleusGroup.position.set(1.2, 0.3, 0);
   nucleusGroup.rotation.z = 0.3;
 
+  // Make nucleus clickable
+  nucleusGroup.userData = { organelle: 'Nucleus' };
+  nucleusGroup.traverse((child) => {
+    if (child.isMesh) {
+      child.userData = { organelle: 'Nucleus' };
+      clickableMeshes.push(child);
+    }
+  });
+
   nucleus = nucleusGroup;
   macrophageGroup.add(nucleusGroup);
 }
@@ -282,6 +372,8 @@ function createLysosomes() {
     lysosome.position.copy(pos);
     lysosome.userData.originalPos = pos.clone();
     lysosome.userData.phase = Math.random() * Math.PI * 2;
+    lysosome.userData.organelle = 'Lysosomes';
+    clickableMeshes.push(lysosome);
 
     lysosomes.push(lysosome);
     macrophageGroup.add(lysosome);
@@ -347,6 +439,13 @@ function createPhagosomes() {
     phagoGroup.position.copy(pos);
     phagoGroup.userData.originalPos = pos.clone();
     phagoGroup.userData.phase = Math.random() * Math.PI * 2;
+    phagoGroup.userData.organelle = 'Phagosomes';
+    phagoGroup.traverse((child) => {
+      if (child.isMesh) {
+        child.userData = { organelle: 'Phagosomes' };
+        clickableMeshes.push(child);
+      }
+    });
 
     phagosomes.push(phagoGroup);
     macrophageGroup.add(phagoGroup);
@@ -354,112 +453,83 @@ function createPhagosomes() {
 }
 
 // ============================================
-// MITOCHONDRIA
+// MITOCHONDRIA - Using shared organelle library
 // ============================================
 
 function createMitochondria() {
-  const mitoCount = 15;
-
-  const mitoMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xef4444,
-    roughness: 0.4,
-    metalness: 0.0,
-    transparent: true,
-    opacity: 0.8,
+  // Generate positions avoiding nucleus area
+  const nucleusPos = new THREE.Vector3(1.2, 0.3, 0);
+  const positions = generateSphericalMitochondriaPositions({
+    count: 18, // Slightly more than before
+    radiusX: 2.5,
+    radiusY: 2.0,
+    radiusZ: 2.5,
+    minRadius: 0.8,
+    excludeRegions: [{ center: nucleusPos, radius: 1.5 }]
   });
 
-  for (let i = 0; i < mitoCount; i++) {
-    const geometry = new THREE.CapsuleGeometry(0.12, 0.3, 8, 8);
-    const mito = new THREE.Mesh(geometry, mitoMaterial.clone());
+  // Create mitochondria with interior glow for energy visualization
+  const mitoGroup = createMitochondriaField(positions, {
+    lengthRange: [0.25, 0.45],
+    radiusRange: [0.12, 0.18],
+    includeCristae: true,
+    includeGlow: true,
+    includeInteriorLight: true,
+    interiorLightFrequency: 0.6, // 60% have interior lights
+    organelleName: 'Mitochondria'
+  });
 
-    let pos;
-    do {
-      pos = new THREE.Vector3(
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 4,
-        (Math.random() - 0.5) * 5
-      );
-    } while (pos.distanceTo(new THREE.Vector3(1.2, 0.3, 0)) < 1.3 || pos.length() > 2.7);
+  // Add all mitochondria meshes to clickable list
+  mitoGroup.traverse((child) => {
+    if (child.isMesh) {
+      child.userData.organelle = 'Mitochondria';
+      clickableMeshes.push(child);
+      mitochondria.push(child);
+    }
+  });
 
-    mito.position.copy(pos);
-    mito.rotation.set(
-      Math.random() * Math.PI,
-      Math.random() * Math.PI,
-      Math.random() * Math.PI
-    );
-
-    mitochondria.push(mito);
-    macrophageGroup.add(mito);
-  }
+  macrophageGroup.add(mitoGroup);
 }
 
 // ============================================
-// GOLGI APPARATUS
+// GOLGI APPARATUS - Using shared organelle library
 // ============================================
 
 function createGolgi() {
-  const golgiGroup = new THREE.Group();
-
-  const golgiMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xfbbf24,
-    roughness: 0.4,
-    metalness: 0.1,
-    transparent: true,
-    opacity: 0.7,
+  const golgiGroup = createSimpleGolgi({
+    position: new THREE.Vector3(-0.8, -0.5, 0.5),
+    cisternaCount: 5,
+    scale: 0.8,
+    organelleName: 'Golgi'
   });
 
-  // Stack of curved cisternae
-  for (let i = 0; i < 5; i++) {
-    const curve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(-0.5, 0, 0),
-      new THREE.Vector3(0, 0, 0.3),
-      new THREE.Vector3(0.5, 0, 0)
-    );
-    const geometry = new THREE.TubeGeometry(curve, 20, 0.08, 8, false);
-    const cisterna = new THREE.Mesh(geometry, golgiMaterial);
-    cisterna.position.y = (i - 2) * 0.15;
-    golgiGroup.add(cisterna);
-  }
-
-  golgiGroup.position.set(-0.8, -0.5, 0.5);
   golgiGroup.rotation.z = 0.2;
+
+  // Make Golgi clickable
+  golgiGroup.traverse((child) => {
+    if (child.isMesh) {
+      child.userData = { organelle: 'Golgi' };
+      clickableMeshes.push(child);
+    }
+  });
+
   macrophageGroup.add(golgiGroup);
 }
 
 // ============================================
-// ENDOPLASMIC RETICULUM
+// ENDOPLASMIC RETICULUM - Using shared organelle library
 // ============================================
 
 function createER() {
-  const erMaterial = new THREE.MeshBasicMaterial({
-    color: 0x60a5fa,
-    transparent: true,
-    opacity: 0.3,
+  const erGroup = createSimpleER({
+    position: new THREE.Vector3(0, 0, 0),
+    tubeCount: 20,
+    spreadRadius: 2.0,
+    tubeRadius: 0.04,
+    organelleName: 'ER'
   });
 
-  for (let i = 0; i < 20; i++) {
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 3,
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 3
-      ),
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 3,
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 3
-      ),
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 3,
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 3
-      ),
-    ]);
-
-    const geometry = new THREE.TubeGeometry(curve, 12, 0.03, 6, false);
-    const tube = new THREE.Mesh(geometry, erMaterial);
-    macrophageGroup.add(tube);
-  }
+  macrophageGroup.add(erGroup);
 }
 
 // ============================================
@@ -511,6 +581,8 @@ function createPseudopods() {
     pseudopod.userData.angle = angle;
     pseudopod.userData.baseLength = length;
     pseudopod.userData.phase = Math.random() * Math.PI * 2;
+    pseudopod.userData.organelle = 'Pseudopods';
+    clickableMeshes.push(pseudopod);
 
     pseudopods.push(pseudopod);
     macrophageGroup.add(pseudopod);
@@ -720,28 +792,64 @@ function createBacteria() {
 // ============================================
 
 function createEnvironment() {
-  // Tissue-like background particles
-  const particleCount = 200;
+  // Tissue-like background with gradient sphere
+  const bgGeometry = new THREE.SphereGeometry(50, 32, 32);
+  const bgMaterial = new THREE.MeshBasicMaterial({
+    color: 0x2d2235,
+    side: THREE.BackSide,
+  });
+  const bgSphere = new THREE.Mesh(bgGeometry, bgMaterial);
+  scene.add(bgSphere);
+
+  // Tissue fluid particles - brighter and more visible
+  const particleCount = 400;
   const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
 
   for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 40;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 30;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    positions[i * 3] = (Math.random() - 0.5) * 50;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 40;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+
+    // Warm tissue colors
+    colors[i * 3] = 0.6 + Math.random() * 0.3;     // R
+    colors[i * 3 + 1] = 0.4 + Math.random() * 0.2; // G
+    colors[i * 3 + 2] = 0.3 + Math.random() * 0.2; // B
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    color: 0x4a3728,
-    size: 0.15,
+    size: 0.2,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.6,
+    vertexColors: true,
   });
 
   const particles = new THREE.Points(geometry, material);
   scene.add(particles);
+
+  // Add some floating protein blobs in background
+  const blobMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x8b7355,
+    roughness: 0.6,
+    metalness: 0.0,
+    transparent: true,
+    opacity: 0.4,
+  });
+
+  for (let i = 0; i < 15; i++) {
+    const blobGeometry = new THREE.SphereGeometry(0.3 + Math.random() * 0.5, 8, 8);
+    const blob = new THREE.Mesh(blobGeometry, blobMaterial);
+    blob.position.set(
+      (Math.random() - 0.5) * 30,
+      (Math.random() - 0.5) * 20,
+      (Math.random() - 0.5) * 30 - 10
+    );
+    scene.add(blob);
+  }
 }
 
 // ============================================
@@ -916,7 +1024,134 @@ function setupEventListeners() {
   resetBtn.addEventListener('click', () => {
     gsapLikeAnimation(camera.position, { x: 0, y: 3, z: 12 }, 1000);
     controls.target.set(0, 0, 0);
+    hideOrganellePopup();
   });
+
+  // Click detection for organelles
+  renderer.domElement.addEventListener('click', onMouseClick);
+  renderer.domElement.addEventListener('mousemove', onMouseMove);
+}
+
+// ============================================
+// ORGANELLE CLICK INTERACTION
+// ============================================
+
+function onMouseClick(event) {
+  const introModal = document.getElementById('intro-modal');
+  const infoModal = document.getElementById('info-modal');
+
+  if (introModal && !introModal.classList.contains('hidden')) return;
+  if (infoModal && !infoModal.classList.contains('hidden')) return;
+
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(clickableMeshes, true);
+
+  if (intersects.length > 0) {
+    let organelle = null;
+
+    // Find the organelle name from the intersected object
+    for (const intersect of intersects) {
+      let obj = intersect.object;
+      while (obj) {
+        if (obj.userData && obj.userData.organelle) {
+          organelle = obj.userData.organelle;
+          break;
+        }
+        obj = obj.parent;
+      }
+      if (organelle) break;
+    }
+
+    if (organelle && organelleInfo[organelle]) {
+      activeOrganelle = organelle;
+      showOrganellePopup(organelle);
+    }
+  } else {
+    hideOrganellePopup();
+  }
+}
+
+function onMouseMove(event) {
+  const introModal = document.getElementById('intro-modal');
+  if (introModal && !introModal.classList.contains('hidden')) return;
+
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(clickableMeshes, true);
+
+  document.body.style.cursor = intersects.length > 0 ? 'pointer' : 'auto';
+}
+
+function showOrganellePopup(organelleName) {
+  const info = organelleInfo[organelleName];
+  if (!info) return;
+
+  // Create or get popup element
+  let popup = document.getElementById('organelle-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'organelle-popup';
+    popup.className = 'fixed left-4 top-1/2 -translate-y-1/2 z-50 max-w-sm';
+    popup.innerHTML = `
+      <div class="glass-strong rounded-2xl p-5 animate-slide-in">
+        <div class="flex items-center gap-3 mb-3">
+          <div id="popup-icon" class="w-10 h-10 rounded-full flex items-center justify-center">
+            <div class="w-5 h-5 rounded-full"></div>
+          </div>
+          <div>
+            <h3 id="popup-title" class="text-lg font-bold text-white"></h3>
+            <p id="popup-subtitle" class="text-xs text-slate-400"></p>
+          </div>
+        </div>
+        <p id="popup-description" class="text-sm text-slate-300 leading-relaxed"></p>
+      </div>
+    `;
+    document.body.appendChild(popup);
+
+    // Add styles if not present
+    if (!document.getElementById('popup-styles')) {
+      const style = document.createElement('style');
+      style.id = 'popup-styles';
+      style.textContent = `
+        @keyframes slide-in {
+          from { opacity: 0; transform: translateX(-20px) translateY(-50%); }
+          to { opacity: 1; transform: translateX(0) translateY(-50%); }
+        }
+        .animate-slide-in { animation: slide-in 0.3s ease-out forwards; }
+        .glass-strong {
+          background: rgba(15, 23, 42, 0.95);
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  // Update content
+  document.getElementById('popup-title').textContent = info.name;
+  document.getElementById('popup-subtitle').textContent = info.subtitle;
+  document.getElementById('popup-description').textContent = info.description;
+
+  // Update icon color
+  const iconContainer = document.getElementById('popup-icon');
+  iconContainer.style.backgroundColor = info.color + '33';
+  iconContainer.querySelector('div').style.backgroundColor = info.color;
+
+  popup.classList.remove('hidden');
+}
+
+function hideOrganellePopup() {
+  const popup = document.getElementById('organelle-popup');
+  if (popup) {
+    popup.classList.add('hidden');
+  }
+  activeOrganelle = null;
 }
 
 function gsapLikeAnimation(obj, target, duration) {

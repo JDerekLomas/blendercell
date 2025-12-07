@@ -446,12 +446,14 @@ function createMitochondria() {
     sarcomereLength: 3.0
   });
 
-  // Create mitochondria using the shared factory
+  // Create mitochondria using the shared factory with interior glow
   const mitochondriaGroup = createMitochondriaField(positions, {
     lengthRange: [0.5, 0.9],
     radiusRange: [0.12, 0.22],
     includeCristae: true,
     includeGlow: true,
+    includeInteriorLight: true,
+    interiorLightFrequency: 0.4, // 40% have interior lights (many mitochondria)
     organelleName: 'Mitochondria'
   });
 

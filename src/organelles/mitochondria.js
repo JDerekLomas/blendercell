@@ -14,6 +14,7 @@ import { createMitochondriaMaterial, createCristaeMaterial, ORGANELLE_COLORS } f
  * @param {number} options.radius Radius of the mitochondrion (default: 0.2)
  * @param {boolean} options.includeCristae Include internal cristae folds (default: true)
  * @param {boolean} options.includeGlow Add emissive glow effect (default: false)
+ * @param {boolean} options.includeInteriorLight Add point light inside for energy glow (default: false)
  * @param {number} options.cristaeCount Number of cristae folds (default: 4)
  * @param {THREE.Material} options.material Custom material (optional)
  * @param {string} options.organelleName Name for click detection (default: 'Mitochondria')
@@ -26,6 +27,7 @@ export function createMitochondrion(options = {}) {
     radius = 0.2,
     includeCristae = true,
     includeGlow = false,
+    includeInteriorLight = false,
     cristaeCount = 4,
     material = null,
     organelleName = 'Mitochondria'
@@ -81,16 +83,23 @@ export function createMitochondrion(options = {}) {
       group.add(crista);
     }
 
-    // Matrix glow (inner space)
+    // Matrix glow (inner space) - enhanced for energy visualization
     const matrixMaterial = new THREE.MeshBasicMaterial({
-      color: ORGANELLE_COLORS.mitochondriaMatrix,
+      color: includeInteriorLight ? 0xff6644 : ORGANELLE_COLORS.mitochondriaMatrix,
       transparent: true,
-      opacity: 0.2
+      opacity: includeInteriorLight ? 0.4 : 0.2
     });
 
     const matrixGeometry = new THREE.CapsuleGeometry(innerRadius * 0.6, innerLength * 0.6, 4, 8);
     const matrix = new THREE.Mesh(matrixGeometry, matrixMaterial);
     group.add(matrix);
+  }
+
+  // Add interior point light for energy glow effect
+  if (includeInteriorLight) {
+    const interiorLight = new THREE.PointLight(0xff6b6b, 0.2, radius * 8);
+    interiorLight.position.set(0, 0, 0);
+    group.add(interiorLight);
   }
 
   return group;
@@ -136,14 +145,20 @@ export function createMitochondriaField(positions, options = {}) {
     radiusRange = [0.15, 0.25],
     includeCristae = true,
     includeGlow = false,
+    includeInteriorLight = false,
+    interiorLightFrequency = 1, // 1 = all, 0.5 = half, etc.
     organelleName = 'Mitochondria'
   } = options;
 
   const group = new THREE.Group();
 
-  for (const position of positions) {
+  for (let i = 0; i < positions.length; i++) {
+    const position = positions[i];
     const length = lengthRange[0] + Math.random() * (lengthRange[1] - lengthRange[0]);
     const radius = radiusRange[0] + Math.random() * (radiusRange[1] - radiusRange[0]);
+
+    // Determine if this mitochondrion gets interior light
+    const hasInteriorLight = includeInteriorLight && (Math.random() < interiorLightFrequency);
 
     const mito = createMitochondrion({
       position,
@@ -151,6 +166,7 @@ export function createMitochondriaField(positions, options = {}) {
       radius,
       includeCristae,
       includeGlow,
+      includeInteriorLight: hasInteriorLight,
       cristaeCount: Math.floor(2 + Math.random() * 3),
       organelleName
     });
