@@ -96,6 +96,12 @@ const organelleInfo = {
     subtitle: 'Active Surface',
     description: 'The macrophage membrane is covered with pattern recognition receptors (PRRs) that detect bacterial molecules. Surface ruffles increase the membrane area for efficient phagocytosis.',
     color: '#fda4af'
+  },
+  'Bacteria': {
+    name: 'E. coli Bacteria',
+    subtitle: 'The Prey',
+    description: 'These rod-shaped bacteria (1-2μm) are common targets for macrophages. Their cell wall contains lipopolysaccharide (LPS), which macrophage receptors recognize as "foreign." Once detected, the macrophage extends pseudopods to engulf and digest the bacterium in about 30 minutes.',
+    color: '#16a34a'
   }
 };
 
@@ -868,6 +874,17 @@ function createBacteria() {
     bacGroup.userData.phase = Math.random() * Math.PI * 2;
     bacGroup.userData.speed = 0.3 + Math.random() * 0.3;
     bacGroup.userData.alive = true;
+    bacGroup.userData.organelle = 'Bacteria';
+    bacGroup.userData.beingEaten = false;
+    bacGroup.userData.eatProgress = 0;
+
+    // Make bacteria clickable
+    bacGroup.traverse((child) => {
+      if (child.isMesh) {
+        child.userData = { organelle: 'Bacteria' };
+        clickableMeshes.push(child);
+      }
+    });
 
     bacteria.push(bacGroup);
     scene.add(bacGroup);
@@ -1084,9 +1101,9 @@ function animate() {
     positions.needsUpdate = true;
   });
 
-  // Animate bacteria (swimming toward macrophage)
+  // Animate bacteria (swimming toward macrophage with dramatic phagocytosis)
   bacteria.forEach((bac) => {
-    if (bac.userData.alive) {
+    if (bac.userData.alive && !bac.userData.beingEaten) {
       const phase = bac.userData.phase;
       const speed = bac.userData.speed;
 
@@ -1098,33 +1115,94 @@ function animate() {
 
       bac.position.add(dir.multiplyScalar(0.01 * speed));
 
-      // Wobble motion
+      // Wobble motion (swimming)
       bac.rotation.x += 0.02;
       bac.rotation.z = Math.sin(time * 3 + phase) * 0.3;
 
-      // Check if close enough to be "eaten"
-      if (bac.position.distanceTo(macrophageGroup.position) < 4) {
-        // Start moving toward cell surface
-        bac.position.add(dir.multiplyScalar(0.02));
+      // Check if close enough to start phagocytosis
+      const dist = bac.position.distanceTo(macrophageGroup.position);
+      if (dist < 4) {
+        // Speed up as it gets closer (being pulled in)
+        bac.position.add(dir.multiplyScalar(0.015));
       }
 
-      if (bac.position.distanceTo(macrophageGroup.position) < 3.2) {
-        // "Captured" - fade out
+      if (dist < 3.5) {
+        // Start being eaten!
+        bac.userData.beingEaten = true;
+        bac.userData.eatProgress = 0;
+        bac.userData.eatStartPos = bac.position.clone();
+        // Set target position once when capture begins
+        bac.userData.eatTargetPos = new THREE.Vector3(
+          (Math.random() - 0.5) * 2,
+          (Math.random() - 0.5) * 1.5,
+          (Math.random() - 0.5) * 2
+        );
+      }
+    }
+
+    // Phagocytosis animation - bacteria being engulfed
+    if (bac.userData.beingEaten) {
+      bac.userData.eatProgress += 0.008; // Slow dramatic engulfment
+      const progress = bac.userData.eatProgress;
+
+      // Move bacteria into the cell
+      const startPos = bac.userData.eatStartPos;
+      const targetPos = bac.userData.eatTargetPos;
+
+      // Lerp position into the cell
+      bac.position.lerpVectors(startPos, targetPos, Math.min(progress, 1));
+
+      // Shrink as it's being digested
+      const scale = Math.max(0, 1 - progress * 0.8);
+      bac.scale.setScalar(scale);
+
+      // Rotate frantically (struggling)
+      bac.rotation.x += 0.1 * (1 - progress);
+      bac.rotation.y += 0.15 * (1 - progress);
+
+      // Change color to grey as it's digested
+      bac.traverse((child) => {
+        if (child.isMesh && child.material) {
+          if (child.material.color) {
+            const grey = 0.3 + 0.7 * (1 - progress);
+            child.material.color.setRGB(grey * 0.09, grey * 0.64, grey * 0.29);
+          }
+          if (child.material.emissiveIntensity !== undefined) {
+            child.material.emissiveIntensity = 0.3 * (1 - progress);
+          }
+        }
+      });
+
+      // Fully digested
+      if (progress >= 1.2) {
         bac.userData.alive = false;
+        bac.userData.beingEaten = false;
         bac.visible = false;
 
         // Respawn after delay
         setTimeout(() => {
           const angle = Math.random() * Math.PI * 2;
-          const dist = 8 + Math.random() * 4;
+          const dist = 10 + Math.random() * 5;
           bac.position.set(
             Math.cos(angle) * dist,
             (Math.random() - 0.5) * 4,
             Math.sin(angle) * dist
           );
+          bac.scale.setScalar(1);
           bac.userData.alive = true;
+          bac.userData.eatProgress = 0;
           bac.visible = true;
-        }, 3000 + Math.random() * 2000);
+
+          // Reset color
+          bac.traverse((child) => {
+            if (child.isMesh && child.material && child.material.color) {
+              child.material.color.setHex(0x16a34a);
+              if (child.material.emissiveIntensity !== undefined) {
+                child.material.emissiveIntensity = 0.3;
+              }
+            }
+          });
+        }, 4000 + Math.random() * 3000);
       }
     }
   });

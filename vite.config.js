@@ -10,6 +10,7 @@ export default defineConfig({
         cells: resolve(__dirname, 'cells.html'),
         macrophage: resolve(__dirname, 'macrophage.html'),
         muscle: resolve(__dirname, 'muscle.html'),
+        organelles: resolve(__dirname, 'organelles.html'),
       },
     },
   },

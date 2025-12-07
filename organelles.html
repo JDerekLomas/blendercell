@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organelle Gallery - 3D Cell Components</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e293b 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .glass-strong {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .organelle-btn {
+      transition: all 0.3s ease;
+    }
+    .organelle-btn:hover {
+      transform: translateY(-2px);
+    }
+    .organelle-btn.active {
+      border-color: currentColor;
+      box-shadow: 0 0 20px currentColor;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-white">
+  <div id="canvas-container"></div>
+
+  <!-- Top Navigation -->
+  <nav class="fixed top-0 left-0 right-0 z-50 p-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <a href="cells.html" class="glass rounded-xl px-4 py-2 flex items-center gap-2 text-slate-300 hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span>Back to Cells</span>
+      </a>
+      <h1 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+        Organelle Gallery
+      </h1>
+      <div class="w-32"></div>
+    </div>
+  </nav>
+
+  <!-- Organelle Selection Panel -->
+  <div class="fixed left-4 top-1/2 -translate-y-1/2 z-40">
+    <div class="glass-strong rounded-2xl p-4 space-y-3" id="organelle-list">
+      <!-- Organelle buttons will be inserted here -->
+    </div>
+  </div>
+
+  <!-- Info Panel -->
+  <div class="fixed right-4 top-1/2 -translate-y-1/2 z-40 max-w-sm" id="info-panel">
+    <div class="glass-strong rounded-2xl p-6 animate-fade-in">
+      <div class="flex items-center gap-3 mb-4">
+        <div id="info-icon" class="w-12 h-12 rounded-full flex items-center justify-center">
+          <div class="w-6 h-6 rounded-full"></div>
+        </div>
+        <div>
+          <h2 id="info-title" class="text-2xl font-bold text-white">Nucleus</h2>
+          <p id="info-subtitle" class="text-sm text-slate-400">Select an organelle</p>
+        </div>
+      </div>
+      <p id="info-description" class="text-slate-300 text-sm leading-relaxed mb-4">
+        Click on any organelle in the left panel to view it in 3D and learn about its function.
+      </p>
+      <div id="info-facts" class="space-y-2 text-xs text-slate-400">
+        <!-- Facts will be inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+    <div class="glass rounded-xl px-6 py-3 flex items-center gap-4">
+      <button id="rotate-btn" class="text-slate-300 hover:text-white transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span>Auto-Rotate</span>
+      </button>
+      <div class="w-px h-6 bg-slate-600"></div>
+      <button id="zoom-in-btn" class="text-slate-300 hover:text-white transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/>
+        </svg>
+      </button>
+      <button id="zoom-out-btn" class="text-slate-300 hover:text-white transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/organelleGallery.js"></script>
+</body>
+</html>
