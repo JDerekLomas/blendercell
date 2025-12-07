@@ -136,17 +136,22 @@ function createMacrophage() {
 
   // Main cell body - amoeboid shape
   const bodyGeometry = createAmoeboidGeometry(3, 64);
+  // Based on research: Macrophage ~21μm diameter
+  // Using radius 3 = diameter 6 as our scale unit
+  // So 1 unit ≈ 3.5μm
   const bodyMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xd4a574,
     roughness: 0.4,
     metalness: 0.0,
     clearcoat: 0.2,
     clearcoatRoughness: 0.5,
-    transmission: 0.2,
-    thickness: 1.5,
+    transmission: 0.8, // 80% transmission = 20% opaque - lets user see inside
+    thickness: 0.5,
     attenuationColor: new THREE.Color(0x8b6914),
-    attenuationDistance: 1.0,
+    attenuationDistance: 3.0,
     side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.2, // 20% opaque as requested
   });
 
   cellBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
@@ -307,10 +312,10 @@ function createPhagosomes() {
     const membrane = new THREE.Mesh(membraneGeometry, membraneMaterial);
     phagoGroup.add(membrane);
 
-    // Contents (partially digested bacteria)
+    // Contents (partially digested bacteria - same scale as live bacteria)
     const contentsCount = 1 + Math.floor(Math.random() * 3);
     for (let j = 0; j < contentsCount; j++) {
-      const contentGeom = new THREE.CapsuleGeometry(0.08, 0.15, 4, 8);
+      const contentGeom = new THREE.CapsuleGeometry(0.05, 0.12, 4, 8);
       const contentMat = new THREE.MeshStandardMaterial({
         color: 0x666666,
         roughness: 0.7,
@@ -648,8 +653,10 @@ function createBacteria() {
   for (let i = 0; i < bacCount; i++) {
     const bacGroup = new THREE.Group();
 
-    // Rod-shaped bacterium
-    const bodyGeometry = new THREE.CapsuleGeometry(0.15, 0.4, 8, 12);
+    // Rod-shaped bacterium (E. coli: ~1-2μm length, ~0.5μm diameter)
+    // At our scale: 1 unit ≈ 3.5μm, so bacteria should be ~0.4-0.6 units long
+    // Radius ~0.07 (diameter 0.14 ≈ 0.5μm), length ~0.3 (total ~0.44 units ≈ 1.5μm)
+    const bodyGeometry = new THREE.CapsuleGeometry(0.07, 0.3, 8, 12);
     const bodyMaterial = new THREE.MeshPhysicalMaterial({
       color: 0x16a34a,
       roughness: 0.5,
@@ -667,17 +674,18 @@ function createBacteria() {
       opacity: 0.6,
     });
 
+    // Flagella scaled to match smaller bacteria
     for (let f = 0; f < 3; f++) {
       const points = [];
       for (let p = 0; p < 10; p++) {
         points.push(new THREE.Vector3(
-          Math.sin(p * 0.8) * 0.05,
-          -0.3 - p * 0.08,
-          Math.cos(p * 0.8) * 0.05
+          Math.sin(p * 0.8) * 0.03,
+          -0.2 - p * 0.05,
+          Math.cos(p * 0.8) * 0.03
         ));
       }
       const curve = new THREE.CatmullRomCurve3(points);
-      const flagGeom = new THREE.TubeGeometry(curve, 20, 0.015, 6, false);
+      const flagGeom = new THREE.TubeGeometry(curve, 20, 0.008, 6, false);
       const flagellum = new THREE.Mesh(flagGeom, flagellaMaterial);
       flagellum.rotation.y = (f / 3) * Math.PI * 2;
       bacGroup.add(flagellum);

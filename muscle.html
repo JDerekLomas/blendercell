@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Muscle Fiber - Interactive 3D Cell Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      background: #0a0612;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(236, 72, 153, 0.2);
+    }
+    .glass-strong {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(236, 72, 153, 0.3);
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(236, 72, 153, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(236, 72, 153, 0.5); }
+    }
+    .pulse-glow {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    @keyframes contract {
+      0%, 100% { transform: scaleX(1); }
+      50% { transform: scaleX(0.85); }
+    }
+    .contract-animation {
+      animation: contract 1.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-white">
+  <div id="canvas-container"></div>
+
+  <!-- Intro Modal -->
+  <div id="intro-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+    <div class="glass-strong rounded-2xl p-8 max-w-lg w-full text-center">
+      <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-pink-900/50 flex items-center justify-center pulse-glow">
+        <svg class="w-12 h-12 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect x="4" y="8" width="16" height="8" rx="2" stroke-width="2"/>
+          <path stroke-linecap="round" stroke-width="2" d="M8 8v8M12 8v8M16 8v8"/>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
+        Skeletal Muscle Fiber
+      </h1>
+      <p class="text-slate-300 mb-6 leading-relaxed">
+        Enter the powerhouse of movement. Explore the intricate sarcomere structure where
+        actin and myosin filaments slide past each other to generate force. Each muscle
+        fiber contains thousands of these microscopic engines.
+      </p>
+      <div class="grid grid-cols-3 gap-4 mb-6 text-sm">
+        <div class="bg-slate-800/50 rounded-lg p-3">
+          <div class="text-pink-400 font-bold text-lg">50-100μm</div>
+          <div class="text-slate-400">Fiber diameter</div>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-3">
+          <div class="text-pink-400 font-bold text-lg">~3μm</div>
+          <div class="text-slate-400">Sarcomere length</div>
+        </div>
+        <div class="bg-slate-800/50 rounded-lg p-3">
+          <div class="text-pink-400 font-bold text-lg">270 mph</div>
+          <div class="text-slate-400">Signal speed</div>
+        </div>
+      </div>
+      <button id="start-btn" class="w-full py-3 px-6 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 rounded-xl font-semibold transition-all duration-300 hover:scale-105">
+        Begin Exploration
+      </button>
+    </div>
+  </div>
+
+  <!-- UI Overlay -->
+  <div id="ui-overlay" class="fixed inset-0 z-40 pointer-events-none hidden">
+    <!-- Top bar -->
+    <div class="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-auto">
+      <a href="cells.html" class="glass rounded-xl px-4 py-2 flex items-center gap-2 hover:bg-slate-800/80 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span class="text-sm font-medium">Cell Atlas</span>
+      </a>
+      <div class="glass rounded-xl px-4 py-2">
+        <h2 class="text-lg font-bold text-pink-400">Muscle Fiber</h2>
+        <p class="text-xs text-slate-400">Skeletal Muscle Cell</p>
+      </div>
+    </div>
+
+    <!-- Bottom controls -->
+    <div class="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-auto">
+      <!-- Info button -->
+      <button id="info-btn" class="glass rounded-xl p-3 hover:bg-slate-800/80 transition-colors">
+        <svg class="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </button>
+
+      <!-- Center controls -->
+      <div class="glass rounded-xl px-4 py-3 flex gap-4">
+        <button id="zoom-in-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="Zoom In">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/>
+          </svg>
+        </button>
+        <button id="zoom-out-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="Zoom Out">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"/>
+          </svg>
+        </button>
+        <div class="w-px bg-slate-600"></div>
+        <button id="contract-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="Toggle Contraction">
+          <svg class="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <div class="w-px bg-slate-600"></div>
+        <button id="reset-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="Reset View">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Legend -->
+      <div class="glass rounded-xl p-3">
+        <div class="text-xs text-slate-400 mb-2">Legend</div>
+        <div class="space-y-1 text-xs">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-pink-500"></div>
+            <span>Myosin (thick)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-cyan-400"></div>
+            <span>Actin (thin)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+            <span>Z-line</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+            <span>Mitochondria</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Modal -->
+  <div id="info-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 hidden">
+    <div class="glass-strong rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div class="flex justify-between items-start mb-4">
+        <h2 class="text-2xl font-bold text-pink-400">Muscle Fiber Structure</h2>
+        <button id="close-info-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-slate-300">
+        <section>
+          <h3 class="text-lg font-semibold text-pink-300 mb-2">The Sarcomere</h3>
+          <p class="text-sm leading-relaxed">
+            The sarcomere is the basic contractile unit of muscle, approximately 3μm long.
+            It's bounded by Z-lines and contains organized arrays of thick (myosin) and
+            thin (actin) filaments that slide past each other during contraction.
+          </p>
+        </section>
+
+        <section>
+          <h3 class="text-lg font-semibold text-pink-300 mb-2">Banding Pattern</h3>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="bg-slate-800/50 rounded-lg p-3">
+              <div class="font-semibold text-pink-400">A-Band (1.6μm)</div>
+              <p class="text-slate-400">Dark band containing thick myosin filaments. Length stays constant during contraction.</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+              <div class="font-semibold text-cyan-400">I-Band</div>
+              <p class="text-slate-400">Light band with only thin actin filaments. Shortens during contraction.</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+              <div class="font-semibold text-amber-400">Z-Line</div>
+              <p class="text-slate-400">Boundary between sarcomeres. Anchors thin filaments via α-actinin.</p>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-3">
+              <div class="font-semibold text-slate-300">M-Line</div>
+              <p class="text-slate-400">Center of sarcomere. Holds thick filaments in place.</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 class="text-lg font-semibold text-pink-300 mb-2">Sliding Filament Theory</h3>
+          <p class="text-sm leading-relaxed">
+            Muscle contraction occurs when myosin heads bind to actin, pulling the thin
+            filaments toward the M-line. This "power stroke" is powered by ATP hydrolysis
+            and occurs simultaneously across thousands of cross-bridges, generating force.
+          </p>
+        </section>
+
+        <section>
+          <h3 class="text-lg font-semibold text-pink-300 mb-2">T-Tubules & Sarcoplasmic Reticulum</h3>
+          <p class="text-sm leading-relaxed">
+            T-tubules carry electrical signals deep into the fiber, triggering calcium
+            release from the sarcoplasmic reticulum. The triad (T-tubule + 2 terminal
+            cisternae) enables rapid, synchronized contraction across the entire fiber.
+          </p>
+        </section>
+
+        <section>
+          <h3 class="text-lg font-semibold text-pink-300 mb-2">Energy Supply</h3>
+          <p class="text-sm leading-relaxed">
+            Mitochondria are strategically positioned between myofibrils to deliver ATP
+            directly to the contractile machinery. Oxidative (slow-twitch) fibers can
+            have up to 15% mitochondrial volume for sustained activity.
+          </p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/muscle.js"></script>
+</body>
+</html>
