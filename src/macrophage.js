@@ -139,42 +139,32 @@ function init() {
 // ============================================
 
 function setupLighting() {
-  // Bright ambient like plasma cell
-  const ambient = new THREE.AmbientLight(0x8899aa, 0.8);
-  scene.add(ambient);
+  // Match plasma cell lighting setup exactly
+  const ambientLight = new THREE.AmbientLight(0x8899aa, 0.5);
+  scene.add(ambientLight);
 
-  // Key light - warm from above-front (like plasma cell)
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  // Key light - warm from above-front
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
   keyLight.position.set(10, 20, 15);
   scene.add(keyLight);
 
   // Fill light - cool from left
-  const fillLight = new THREE.DirectionalLight(0x6688cc, 0.6);
+  const fillLight = new THREE.DirectionalLight(0x6688cc, 0.5);
   fillLight.position.set(-20, 5, 0);
   scene.add(fillLight);
 
-  // Warm fill from right
-  const warmFill = new THREE.DirectionalLight(0xeab308, 0.6);
-  warmFill.position.set(15, 0, -5);
-  scene.add(warmFill);
-
   // Rim light - warm accent from behind
-  const rimLight = new THREE.DirectionalLight(0xffaa66, 0.4);
+  const rimLight = new THREE.DirectionalLight(0xffaa66, 0.3);
   rimLight.position.set(0, -5, -20);
   scene.add(rimLight);
 
-  // INTERIOR GLOW - key for seeing inside (like plasma cell)
-  const innerLight = new THREE.PointLight(0xffdd88, 1.2, 15);
+  // Interior glow - golden-amber for macrophage warmth
+  const innerLight = new THREE.PointLight(0xffcc66, 0.8, 20);
   innerLight.position.set(0, 0, 0);
   scene.add(innerLight);
 
-  // Second interior light for better coverage
-  const innerLight2 = new THREE.PointLight(0xeab308, 0.8, 12);
-  innerLight2.position.set(1, 0.5, 0);
-  scene.add(innerLight2);
-
-  // Hemisphere light for natural feel
-  const hemiLight = new THREE.HemisphereLight(0xffffee, 0x445544, 0.5);
+  // Subtle hemisphere light for natural feel
+  const hemiLight = new THREE.HemisphereLight(0xaaddff, 0x445566, 0.4);
   scene.add(hemiLight);
 }
 
@@ -534,58 +524,155 @@ function createER() {
 
 // ============================================
 // PSEUDOPODS - Dynamic arm-like extensions
+// Improved with tapered, organic shapes
 // ============================================
 
 function createPseudopods() {
-  const podCount = 5;
-
-  const podMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xd4a574,
-    roughness: 0.4,
-    metalness: 0.0,
-    clearcoat: 0.2,
-    transparent: true,
-    opacity: 0.9,
-  });
+  const podCount = 6;
 
   for (let i = 0; i < podCount; i++) {
-    const angle = (i / podCount) * Math.PI * 2 + Math.random() * 0.5;
-    const length = 1.5 + Math.random() * 1.5;
+    const podGroup = new THREE.Group();
+    const angle = (i / podCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+    const length = 2.0 + Math.random() * 1.5;
+    const yOffset = (Math.random() - 0.5) * 1.5;
 
-    // Create curved pseudopod
-    const curve = new THREE.QuadraticBezierCurve3(
+    // Create more organic curved path with multiple control points
+    const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(0, 0, 0),
       new THREE.Vector3(
-        Math.cos(angle) * length * 0.6,
-        (Math.random() - 0.5) * 0.5,
-        Math.sin(angle) * length * 0.6
+        Math.cos(angle) * length * 0.3,
+        yOffset * 0.3,
+        Math.sin(angle) * length * 0.3
       ),
       new THREE.Vector3(
-        Math.cos(angle) * length,
-        (Math.random() - 0.5) * 0.8,
-        Math.sin(angle) * length
+        Math.cos(angle + 0.1) * length * 0.6,
+        yOffset * 0.6 + (Math.random() - 0.5) * 0.3,
+        Math.sin(angle + 0.1) * length * 0.6
+      ),
+      new THREE.Vector3(
+        Math.cos(angle) * length * 0.85,
+        yOffset * 0.8,
+        Math.sin(angle) * length * 0.85
+      ),
+      new THREE.Vector3(
+        Math.cos(angle - 0.05) * length,
+        yOffset,
+        Math.sin(angle - 0.05) * length
       )
-    );
+    ]);
 
-    const geometry = new THREE.TubeGeometry(curve, 20, 0.4, 12, false);
-    const pseudopod = new THREE.Mesh(geometry, podMaterial.clone());
+    // Main pseudopod body - tapered tube
+    const segments = 30;
+    const radiusFunc = (t) => {
+      // Taper from thick base to thin tip with slight bulge
+      const base = 0.5 - t * 0.35;
+      const bulge = Math.sin(t * Math.PI) * 0.1;
+      return Math.max(0.08, base + bulge);
+    };
 
-    // Start position at cell surface
+    // Create custom tapered geometry
+    const points = curve.getPoints(segments);
+    const frames = curve.computeFrenetFrames(segments);
+
+    const podGeometry = new THREE.BufferGeometry();
+    const vertices = [];
+    const normals = [];
+    const uvs = [];
+    const indices = [];
+    const radialSegments = 12;
+
+    for (let j = 0; j <= segments; j++) {
+      const t = j / segments;
+      const radius = radiusFunc(t);
+      const point = points[j];
+      const N = frames.normals[j];
+      const B = frames.binormals[j];
+
+      for (let k = 0; k <= radialSegments; k++) {
+        const theta = (k / radialSegments) * Math.PI * 2;
+        const sin = Math.sin(theta);
+        const cos = Math.cos(theta);
+
+        const nx = cos * N.x + sin * B.x;
+        const ny = cos * N.y + sin * B.y;
+        const nz = cos * N.z + sin * B.z;
+
+        vertices.push(
+          point.x + radius * nx,
+          point.y + radius * ny,
+          point.z + radius * nz
+        );
+        normals.push(nx, ny, nz);
+        uvs.push(k / radialSegments, t);
+      }
+    }
+
+    for (let j = 0; j < segments; j++) {
+      for (let k = 0; k < radialSegments; k++) {
+        const a = j * (radialSegments + 1) + k;
+        const b = a + radialSegments + 1;
+        const c = a + 1;
+        const d = b + 1;
+
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
+    }
+
+    podGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    podGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    podGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    podGeometry.setIndex(indices);
+
+    const podMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xd4a574,
+      roughness: 0.35,
+      metalness: 0.0,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.4,
+      transparent: true,
+      opacity: 0.92,
+      side: THREE.DoubleSide,
+    });
+
+    const pseudopod = new THREE.Mesh(podGeometry, podMaterial);
+
+    // Add membrane-like end cap (lamellipodium)
+    const tipRadius = radiusFunc(1);
+    const capGeometry = new THREE.SphereGeometry(tipRadius * 1.8, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    const capMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xe0b090,
+      roughness: 0.3,
+      metalness: 0.0,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+    });
+    const cap = new THREE.Mesh(capGeometry, capMaterial);
+    cap.position.copy(points[points.length - 1]);
+    cap.lookAt(points[points.length - 2]);
+
+    podGroup.add(pseudopod);
+    podGroup.add(cap);
+
+    // Position at cell surface
     const surfacePoint = new THREE.Vector3(
-      Math.cos(angle) * 2.8,
-      (Math.random() - 0.5) * 0.5,
-      Math.sin(angle) * 2.8
+      Math.cos(angle) * 2.9,
+      yOffset * 0.3,
+      Math.sin(angle) * 2.9
     );
-    pseudopod.position.copy(surfacePoint);
+    podGroup.position.copy(surfacePoint);
 
-    pseudopod.userData.angle = angle;
-    pseudopod.userData.baseLength = length;
-    pseudopod.userData.phase = Math.random() * Math.PI * 2;
+    podGroup.userData.angle = angle;
+    podGroup.userData.baseLength = length;
+    podGroup.userData.phase = Math.random() * Math.PI * 2;
+    podGroup.userData.organelle = 'Pseudopods';
+
     pseudopod.userData.organelle = 'Pseudopods';
     clickableMeshes.push(pseudopod);
 
-    pseudopods.push(pseudopod);
-    macrophageGroup.add(pseudopod);
+    pseudopods.push(podGroup);
+    macrophageGroup.add(podGroup);
   }
 }
 
@@ -792,63 +879,144 @@ function createBacteria() {
 // ============================================
 
 function createEnvironment() {
-  // Tissue-like background with gradient sphere
-  const bgGeometry = new THREE.SphereGeometry(50, 32, 32);
-  const bgMaterial = new THREE.MeshBasicMaterial({
-    color: 0x2d2235,
-    side: THREE.BackSide,
-  });
-  const bgSphere = new THREE.Mesh(bgGeometry, bgMaterial);
-  scene.add(bgSphere);
+  // Create star field like plasma cell for atmospheric depth
+  createStarField();
 
-  // Tissue fluid particles - brighter and more visible
-  const particleCount = 400;
-  const positions = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
+  // Floating cytoplasm/tissue particles inside viewing area
+  createTissueParticles();
 
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 50;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 40;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 50;
+  // Add fog for depth perception
+  scene.fog = new THREE.FogExp2(0x0f172a, 0.012);
 
-    // Warm tissue colors
-    colors[i * 3] = 0.6 + Math.random() * 0.3;     // R
-    colors[i * 3 + 1] = 0.4 + Math.random() * 0.2; // G
-    colors[i * 3 + 2] = 0.3 + Math.random() * 0.2; // B
+  // Collagen fiber network in background (tissue context)
+  createCollagenNetwork();
+
+  // Floating cells in background (other immune cells)
+  createBackgroundCells();
+}
+
+function createStarField() {
+  const starCount = 4000;
+  const positions = new Float32Array(starCount * 3);
+  const colors = new Float32Array(starCount * 3);
+
+  for (let i = 0; i < starCount; i++) {
+    const radius = 60 + Math.random() * 40;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = radius * Math.cos(phi);
+
+    // Warm amber/pink tones for tissue environment
+    const brightness = 0.4 + Math.random() * 0.4;
+    colors[i * 3] = brightness + Math.random() * 0.2;
+    colors[i * 3 + 1] = brightness * 0.7;
+    colors[i * 3 + 2] = brightness * 0.6;
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.2,
-    transparent: true,
-    opacity: 0.6,
+    size: 0.4,
     vertexColors: true,
-  });
-
-  const particles = new THREE.Points(geometry, material);
-  scene.add(particles);
-
-  // Add some floating protein blobs in background
-  const blobMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0x8b7355,
-    roughness: 0.6,
-    metalness: 0.0,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.7,
+    sizeAttenuation: true
   });
 
-  for (let i = 0; i < 15; i++) {
-    const blobGeometry = new THREE.SphereGeometry(0.3 + Math.random() * 0.5, 8, 8);
-    const blob = new THREE.Mesh(blobGeometry, blobMaterial);
-    blob.position.set(
+  scene.add(new THREE.Points(geometry, material));
+}
+
+function createTissueParticles() {
+  const particleCount = 600;
+  const positions = new Float32Array(particleCount * 3);
+
+  for (let i = 0; i < particleCount; i++) {
+    const r = Math.random() * 12;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.06,
+    color: 0xeebb88,
+    transparent: true,
+    opacity: 0.35,
+    sizeAttenuation: true
+  });
+
+  scene.add(new THREE.Points(geometry, material));
+}
+
+function createCollagenNetwork() {
+  const collagenMaterial = new THREE.MeshBasicMaterial({
+    color: 0x886655,
+    transparent: true,
+    opacity: 0.2,
+  });
+
+  for (let i = 0; i < 20; i++) {
+    const points = [];
+    const startPos = new THREE.Vector3(
+      (Math.random() - 0.5) * 50,
       (Math.random() - 0.5) * 30,
-      (Math.random() - 0.5) * 20,
-      (Math.random() - 0.5) * 30 - 10
+      -20 - Math.random() * 30
     );
-    scene.add(blob);
+
+    for (let j = 0; j < 4; j++) {
+      points.push(new THREE.Vector3(
+        startPos.x + (Math.random() - 0.5) * 15,
+        startPos.y + (Math.random() - 0.5) * 10,
+        startPos.z + j * 5
+      ));
+    }
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tubeGeometry = new THREE.TubeGeometry(curve, 16, 0.15 + Math.random() * 0.2, 6, false);
+    const fiber = new THREE.Mesh(tubeGeometry, collagenMaterial);
+    scene.add(fiber);
+  }
+}
+
+function createBackgroundCells() {
+  // Distant cells (red blood cells, other leukocytes)
+  const cellMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xcc6666,
+    roughness: 0.5,
+    transparent: true,
+    opacity: 0.3,
+  });
+
+  for (let i = 0; i < 8; i++) {
+    const size = 0.8 + Math.random() * 1.2;
+    const cellGeometry = new THREE.SphereGeometry(size, 12, 12);
+    const cell = new THREE.Mesh(cellGeometry, cellMaterial.clone());
+
+    cell.position.set(
+      (Math.random() - 0.5) * 40,
+      (Math.random() - 0.5) * 25,
+      -15 - Math.random() * 25
+    );
+
+    // Slight deformation for organic look
+    cell.scale.set(
+      1 + (Math.random() - 0.5) * 0.3,
+      1 + (Math.random() - 0.5) * 0.3,
+      1 + (Math.random() - 0.5) * 0.3
+    );
+
+    scene.add(cell);
   }
 }
 
