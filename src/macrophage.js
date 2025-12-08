@@ -58,7 +58,7 @@ const organelleInfo = {
   'Nucleus': {
     name: 'Nucleus',
     subtitle: 'Command Center',
-    description: 'The kidney-shaped nucleus is positioned eccentrically in the macrophage. It contains the genetic instructions for producing all the enzymes and receptors needed for phagocytosis. Unlike most cells, macrophages can survive for months in tissues.',
+    description: 'The rounded nucleus (with subtle indentation from its monocyte origin) is positioned eccentrically in the macrophage. It contains the genetic instructions for producing all the enzymes and receptors needed for phagocytosis. Unlike most cells, macrophages can survive for months in tissues.',
     color: '#a855f7'
   },
   'Lysosomes': {
@@ -252,15 +252,40 @@ function createMacrophage() {
 }
 
 // ============================================
-// KIDNEY-SHAPED NUCLEUS
-// Eccentric position, distinctive shape
+// NUCLEUS - Rounded with slight indentation
+// Macrophage nuclei are more rounded than monocyte nuclei
+// but retain some lobulation
 // ============================================
 
 function createNucleus() {
   const nucleusGroup = new THREE.Group();
 
-  // Create kidney shape using modified torus
-  const kidneyGeometry = new THREE.TorusGeometry(0.8, 0.5, 16, 32, Math.PI * 1.5);
+  // Scale: 1 unit ≈ 3.5 μm
+  // Nucleus diameter: ~5-7 μm → ~1.5-2 units diameter → radius ~0.85
+  const nucleusRadius = 0.85;
+
+  // Create rounded nucleus with slight indentation (not kidney-shaped)
+  // Use a deformed sphere for more organic, rounded shape
+  const nucleusGeometry = new THREE.SphereGeometry(nucleusRadius, 32, 32);
+  const positions = nucleusGeometry.attributes.position;
+
+  // Apply subtle indentation on one side (legacy of monocyte origin)
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i);
+    const y = positions.getY(i);
+    const z = positions.getZ(i);
+
+    // Slight indentation on -x side
+    const indentFactor = Math.max(0, -x / nucleusRadius) * 0.15;
+    const newX = x + indentFactor * nucleusRadius;
+
+    // Slight organic variation
+    const noise = Math.sin(x * 3 + y * 2) * Math.cos(z * 2.5) * 0.03;
+
+    positions.setXYZ(i, newX * (1 + noise), y * (1 + noise * 0.5), z * (1 + noise * 0.5));
+  }
+  nucleusGeometry.computeVertexNormals();
+
   const nucleusMaterial = new THREE.MeshPhysicalMaterial({
     color: 0x4a2882,
     roughness: 0.3,
@@ -269,54 +294,43 @@ function createNucleus() {
     transmission: 0.1,
   });
 
-  const kidneyMesh = new THREE.Mesh(kidneyGeometry, nucleusMaterial);
-  kidneyMesh.rotation.x = Math.PI / 2;
+  const nucleusMesh = new THREE.Mesh(nucleusGeometry, nucleusMaterial);
+  nucleusGroup.add(nucleusMesh);
 
-  // Add caps to close the kidney shape
-  const capGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-  const cap1 = new THREE.Mesh(capGeometry, nucleusMaterial);
-  cap1.position.set(0.8, 0, 0);
-  cap1.scale.set(1, 1, 0.8);
-
-  const cap2 = new THREE.Mesh(capGeometry, nucleusMaterial);
-  cap2.position.set(-0.5, 0, 0.6);
-  cap2.scale.set(0.9, 0.9, 0.7);
-
-  nucleusGroup.add(kidneyMesh);
-  nucleusGroup.add(cap1);
-  nucleusGroup.add(cap2);
-
-  // Add nucleolus
-  const nucleolusGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+  // Add nucleolus (~1-2 μm → ~0.4 units)
+  const nucleolusGeometry = new THREE.SphereGeometry(0.25, 16, 16);
   const nucleolusMaterial = new THREE.MeshStandardMaterial({
     color: 0x2d1a4a,
     roughness: 0.5,
   });
   const nucleolus = new THREE.Mesh(nucleolusGeometry, nucleolusMaterial);
-  nucleolus.position.set(0.2, 0, 0);
+  nucleolus.position.set(0.2, 0.1, 0);
   nucleusGroup.add(nucleolus);
 
-  // Chromatin spots
-  for (let i = 0; i < 8; i++) {
-    const chromatinGeom = new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 8, 8);
+  // Chromatin spots (condensed chromatin regions)
+  for (let i = 0; i < 10; i++) {
+    const chromatinGeom = new THREE.SphereGeometry(0.06 + Math.random() * 0.04, 8, 8);
     const chromatinMat = new THREE.MeshBasicMaterial({
       color: 0x1a0d2e,
       transparent: true,
       opacity: 0.7,
     });
     const chromatin = new THREE.Mesh(chromatinGeom, chromatinMat);
-    const angle = (i / 8) * Math.PI * 1.5;
+
+    // Distribute inside nucleus
+    const r = Math.random() * nucleusRadius * 0.7;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
     chromatin.position.set(
-      Math.cos(angle) * 0.6,
-      (Math.random() - 0.5) * 0.3,
-      Math.sin(angle) * 0.4
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi)
     );
     nucleusGroup.add(chromatin);
   }
 
   // Position nucleus eccentrically (pushed to one side)
-  nucleusGroup.position.set(1.2, 0.3, 0);
-  nucleusGroup.rotation.z = 0.3;
+  nucleusGroup.position.set(1.0, 0.2, 0);
 
   // Make nucleus clickable
   nucleusGroup.userData = { organelle: 'Nucleus' };
@@ -449,42 +463,92 @@ function createPhagosomes() {
 }
 
 // ============================================
-// MITOCHONDRIA - Using shared organelle library
+// MITOCHONDRIA - Accurate count and proportions
+// Scale: 1 unit ≈ 3.5 μm
+// Mitochondria: 0.5-1 μm diameter (0.14-0.28 units), 1-4 μm length (0.28-1.1 units)
+// Count: ~200-400 per macrophage, using ~250 for performance
 // ============================================
 
 function createMitochondria() {
   // Generate positions avoiding nucleus area
-  const nucleusPos = new THREE.Vector3(1.2, 0.3, 0);
-  const positions = generateSphericalMitochondriaPositions({
-    count: 18, // Slightly more than before
-    radiusX: 2.5,
-    radiusY: 2.0,
-    radiusZ: 2.5,
-    minRadius: 0.8,
-    excludeRegions: [{ center: nucleusPos, radius: 1.5 }]
+  const nucleusPos = new THREE.Vector3(1.0, 0.2, 0);
+
+  // Accurate count: ~250 mitochondria (middle of 200-400 range)
+  // Use mix of detailed (50) and instanced (200) for performance
+  const detailedCount = 50;
+  const instancedCount = 200;
+
+  // Detailed mitochondria (with cristae and interior glow) - closer to camera
+  const detailedPositions = generateSphericalMitochondriaPositions({
+    count: detailedCount,
+    radiusX: 2.2,
+    radiusY: 1.8,
+    radiusZ: 2.2,
+    minRadius: 1.2,
+    excludeRegions: [{ center: nucleusPos, radius: 1.2 }]
   });
 
-  // Create mitochondria with interior glow for energy visualization
-  const mitoGroup = createMitochondriaField(positions, {
-    lengthRange: [0.25, 0.45],
-    radiusRange: [0.12, 0.18],
+  // Accurate size: 0.5-1 μm diameter → 0.14-0.28 units radius
+  // Length: 1-4 μm → 0.28-1.1 units
+  const detailedGroup = createMitochondriaField(detailedPositions, {
+    lengthRange: [0.3, 0.8],    // 1-2.8 μm length
+    radiusRange: [0.08, 0.14],  // 0.28-0.5 μm radius (0.56-1 μm diameter)
     includeCristae: true,
     includeGlow: true,
     includeInteriorLight: true,
-    interiorLightFrequency: 0.6, // 60% have interior lights
+    interiorLightFrequency: 0.3, // 30% have interior lights (reduce for performance)
     organelleName: 'Mitochondria'
   });
 
-  // Add all mitochondria meshes to clickable list
-  mitoGroup.traverse((child) => {
+  detailedGroup.traverse((child) => {
     if (child.isMesh) {
       child.userData.organelle = 'Mitochondria';
       clickableMeshes.push(child);
       mitochondria.push(child);
     }
   });
+  macrophageGroup.add(detailedGroup);
 
-  macrophageGroup.add(mitoGroup);
+  // Instanced mitochondria (simplified, no cristae) - fill the rest of the cell
+  const instancedPositions = generateSphericalMitochondriaPositions({
+    count: instancedCount,
+    radiusX: 2.8,
+    radiusY: 2.4,
+    radiusZ: 2.8,
+    minRadius: 0.5,
+    excludeRegions: [{ center: nucleusPos, radius: 1.0 }]
+  });
+
+  // Create instanced mesh for performance
+  const mitoGeometry = new THREE.CapsuleGeometry(0.1, 0.4, 4, 8);
+  const mitoMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xef4444,
+    roughness: 0.4,
+    metalness: 0.1,
+    emissive: 0x661111,
+    emissiveIntensity: 0.15
+  });
+
+  const instancedMesh = new THREE.InstancedMesh(mitoGeometry, mitoMaterial, instancedCount);
+  instancedMesh.userData = { organelle: 'Mitochondria' };
+
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < instancedCount; i++) {
+    dummy.position.copy(instancedPositions[i]);
+    dummy.rotation.set(
+      Math.random() * Math.PI,
+      Math.random() * Math.PI,
+      Math.random() * Math.PI
+    );
+    // Size variation
+    const scale = 0.6 + Math.random() * 0.8;
+    dummy.scale.set(scale, scale, scale);
+    dummy.updateMatrix();
+    instancedMesh.setMatrixAt(i, dummy.matrix);
+  }
+  instancedMesh.instanceMatrix.needsUpdate = true;
+  clickableMeshes.push(instancedMesh);
+  macrophageGroup.add(instancedMesh);
 }
 
 // ============================================
