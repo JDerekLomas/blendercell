@@ -205,20 +205,20 @@
       </div>
     </div>
 
-    <!-- Scale Bar (bottom left) -->
-    <div class="pointer-events-auto absolute bottom-6 left-6 animate-slide-up">
+    <!-- Scale Bar (bottom left) - Dynamic based on zoom -->
+    <div class="pointer-events-auto absolute bottom-6 left-6 animate-slide-up" id="scale-bar-container">
       <div class="bg-slate-900/80 backdrop-blur-md border border-yellow-500/30 rounded-lg px-4 py-3">
         <div class="flex items-center gap-3">
           <div class="flex flex-col items-center">
-            <div class="w-16 h-0.5 bg-yellow-400 relative">
+            <div id="scale-bar" class="h-0.5 bg-yellow-400 relative" style="width: 60px;">
               <div class="absolute -left-0.5 -top-1 w-0.5 h-2.5 bg-yellow-400"></div>
               <div class="absolute -right-0.5 -top-1 w-0.5 h-2.5 bg-yellow-400"></div>
             </div>
-            <span class="text-yellow-300 text-xs font-bold mt-1">5 μm</span>
+            <span id="scale-value" class="text-yellow-300 text-xs font-bold mt-1">5 μm</span>
           </div>
           <div class="border-l border-slate-600 pl-3">
             <div class="text-slate-400 text-xs">Cell: ~21 μm</div>
-            <div class="text-slate-500 text-xs">Mitochondria: 250</div>
+            <div class="text-slate-500 text-xs">Mito: 250 | Bacteria: 12</div>
           </div>
         </div>
       </div>

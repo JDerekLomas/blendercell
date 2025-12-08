@@ -220,13 +220,13 @@ function createMacrophage() {
     metalness: 0.0,
     clearcoat: 0.2,
     clearcoatRoughness: 0.5,
-    transmission: 0.8, // 80% transmission = 20% opaque - lets user see inside
+    transmission: 0.6, // 60% transmission = 40% opaque - more visible membrane
     thickness: 0.5,
     attenuationColor: new THREE.Color(0x8b6914),
     attenuationDistance: 3.0,
     side: THREE.DoubleSide,
     transparent: true,
-    opacity: 0.2, // 20% opaque as requested
+    opacity: 0.35, // Increased opacity for better visibility
   });
 
   cellBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
@@ -465,84 +465,49 @@ function createPhagosomes() {
 // ============================================
 // MITOCHONDRIA - Accurate count and proportions
 // Scale: 1 unit ≈ 3.5 μm
-// Mitochondria: 0.5-1 μm diameter (0.14-0.28 units), 1-4 μm length (0.28-1.1 units)
-// Count: ~200-400 per macrophage, using ~250 for performance
+// Mitochondria: ~0.5 μm diameter, 1-2 μm length (similar to E. coli!)
+// Count: ~250 per macrophage
+// All uniform appearance using instancing for consistency
 // ============================================
 
 function createMitochondria() {
-  // Generate positions avoiding nucleus area
   const nucleusPos = new THREE.Vector3(1.0, 0.2, 0);
+  const mitoCount = 250;
 
-  // Accurate count: ~250 mitochondria (middle of 200-400 range)
-  // Use mix of detailed (50) and instanced (200) for performance
-  const detailedCount = 50;
-  const instancedCount = 200;
-
-  // Detailed mitochondria (with cristae and interior glow) - closer to camera
-  const detailedPositions = generateSphericalMitochondriaPositions({
-    count: detailedCount,
-    radiusX: 2.2,
-    radiusY: 1.8,
-    radiusZ: 2.2,
-    minRadius: 1.2,
-    excludeRegions: [{ center: nucleusPos, radius: 1.2 }]
-  });
-
-  // Accurate size: 0.5-1 μm diameter → 0.14-0.28 units radius
-  // Length: 1-4 μm → 0.28-1.1 units
-  const detailedGroup = createMitochondriaField(detailedPositions, {
-    lengthRange: [0.3, 0.8],    // 1-2.8 μm length
-    radiusRange: [0.08, 0.14],  // 0.28-0.5 μm radius (0.56-1 μm diameter)
-    includeCristae: true,
-    includeGlow: true,
-    includeInteriorLight: true,
-    interiorLightFrequency: 0.3, // 30% have interior lights (reduce for performance)
-    organelleName: 'Mitochondria'
-  });
-
-  detailedGroup.traverse((child) => {
-    if (child.isMesh) {
-      child.userData.organelle = 'Mitochondria';
-      clickableMeshes.push(child);
-      mitochondria.push(child);
-    }
-  });
-  macrophageGroup.add(detailedGroup);
-
-  // Instanced mitochondria (simplified, no cristae) - fill the rest of the cell
-  const instancedPositions = generateSphericalMitochondriaPositions({
-    count: instancedCount,
+  // Generate positions throughout cytoplasm, avoiding nucleus
+  const positions = generateSphericalMitochondriaPositions({
+    count: mitoCount,
     radiusX: 2.8,
     radiusY: 2.4,
     radiusZ: 2.8,
-    minRadius: 0.5,
-    excludeRegions: [{ center: nucleusPos, radius: 1.0 }]
+    minRadius: 0.6,
+    excludeRegions: [{ center: nucleusPos, radius: 1.2 }]
   });
 
-  // Create instanced mesh for performance
-  const mitoGeometry = new THREE.CapsuleGeometry(0.1, 0.4, 4, 8);
+  // Accurate size: ~0.5 μm diameter → 0.14 units radius
+  // Length: 1-2 μm → 0.28-0.57 units (using 0.4 average)
+  // Note: Mitochondria are similar in size to E. coli bacteria!
+  const mitoGeometry = new THREE.CapsuleGeometry(0.07, 0.35, 6, 10);
   const mitoMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xef4444,
-    roughness: 0.4,
+    roughness: 0.35,
     metalness: 0.1,
-    emissive: 0x661111,
-    emissiveIntensity: 0.15
+    emissive: 0x881111,
+    emissiveIntensity: 0.25, // Glow for "energy" visualization
+    clearcoat: 0.2
   });
 
-  const instancedMesh = new THREE.InstancedMesh(mitoGeometry, mitoMaterial, instancedCount);
+  const instancedMesh = new THREE.InstancedMesh(mitoGeometry, mitoMaterial, mitoCount);
   instancedMesh.userData = { organelle: 'Mitochondria' };
 
   const dummy = new THREE.Object3D();
-  for (let i = 0; i < instancedCount; i++) {
-    dummy.position.copy(instancedPositions[i]);
+  for (let i = 0; i < mitoCount; i++) {
+    dummy.position.copy(positions[i]);
     dummy.rotation.set(
       Math.random() * Math.PI,
       Math.random() * Math.PI,
       Math.random() * Math.PI
     );
-    // Size variation
-    const scale = 0.6 + Math.random() * 0.8;
-    dummy.scale.set(scale, scale, scale);
     dummy.updateMatrix();
     instancedMesh.setMatrixAt(i, dummy.matrix);
   }
@@ -874,10 +839,11 @@ function createReceptors() {
 
 // ============================================
 // BACTERIA - Targets for phagocytosis
+// E. coli: ~0.5 μm diameter, 1-2 μm length (similar to mitochondria!)
 // ============================================
 
 function createBacteria() {
-  const bacCount = 5;
+  const bacCount = 12; // More bacteria for active hunting scene
 
   for (let i = 0; i < bacCount; i++) {
     const bacGroup = new THREE.Group();
@@ -1271,8 +1237,65 @@ function animate() {
     }
   });
 
+  // Update dynamic scale bar based on camera distance
+  updateScaleBar();
+
   controls.update();
   renderer.render(scene, camera);
+}
+
+// ============================================
+// DYNAMIC SCALE BAR
+// Updates based on camera zoom level
+// ============================================
+
+function updateScaleBar() {
+  const scaleBar = document.getElementById('scale-bar');
+  const scaleValue = document.getElementById('scale-value');
+  if (!scaleBar || !scaleValue || !camera) return;
+
+  // Get camera distance from origin
+  const cameraDistance = camera.position.length();
+
+  // At default distance (~12), we show 5 μm at 60px
+  // Scale: 1 unit = 3.5 μm
+  // At distance 12, about 1.4 units fit in 60px worth of view
+
+  // Calculate apparent scale based on zoom
+  // Closer = larger apparent size, farther = smaller
+  const baseDistance = 12;
+  const zoomFactor = baseDistance / cameraDistance;
+
+  // Choose appropriate scale value based on zoom
+  let scaleUm, barWidth;
+
+  if (zoomFactor > 2) {
+    // Very close - show 1 μm
+    scaleUm = 1;
+    barWidth = 40 * zoomFactor / 2;
+  } else if (zoomFactor > 1) {
+    // Close - show 2 μm
+    scaleUm = 2;
+    barWidth = 50 * zoomFactor / 1.5;
+  } else if (zoomFactor > 0.5) {
+    // Normal - show 5 μm
+    scaleUm = 5;
+    barWidth = 60 * zoomFactor;
+  } else if (zoomFactor > 0.25) {
+    // Far - show 10 μm
+    scaleUm = 10;
+    barWidth = 50 * zoomFactor * 2;
+  } else {
+    // Very far - show 20 μm
+    scaleUm = 20;
+    barWidth = 60 * zoomFactor * 4;
+  }
+
+  // Clamp bar width to reasonable range
+  barWidth = Math.max(30, Math.min(100, barWidth));
+
+  scaleBar.style.width = `${barWidth}px`;
+  scaleValue.textContent = `${scaleUm} μm`;
 }
 
 // ============================================
