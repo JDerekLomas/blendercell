@@ -1,37 +1,31 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import {
-  createMitochondriaField,
-  generateMuscleMitochondriaPositions,
-  createMuscleNucleus,
-  ORGANELLE_COLORS
-} from './organelles/index.js';
 
 // ============================================
-// SKELETAL MUSCLE FIBER - "The Power Generator"
-// Anatomically Accurate 3D Visualization
+// SARCOMERE - Molecular View
+// "The Sliding Filament Mechanism"
 // ============================================
-// Based on research:
-// - Fiber diameter: 50-100μm
-// - Sarcomere length: ~3μm (resting), ~2μm (contracted)
-// - A-band: 1.6μm (constant)
-// - Thick filaments (myosin): 1.65μm long, 15nm diameter
-// - Thin filaments (actin): 1.0μm long, 7-8nm diameter
-// - Z-line width: 30-100nm
-// - T-tubules: at A-I junctions, 20-40nm diameter
-// - Triads: T-tubule + 2 terminal cisternae
+// Zoomed-in view of a single sarcomere showing:
+// - Thick filaments (myosin) with visible heads
+// - Thin filaments (actin) with helical structure
+// - Z-discs at boundaries
+// - M-line at center
+// - Animated contraction cycle
 // ============================================
 
 let scene, camera, renderer, controls;
-let muscleGroup;
+let sarcomereGroup;
 let clock = new THREE.Clock();
 let isContracting = false;
 let contractionPhase = 0;
 
-// Sarcomere components for animation
-let sarcomeres = [];
-let thinFilaments = [];
-let zLines = [];
+// Animation components
+let myosinHeads = [];
+let actinFilaments = [];
+let zDiscs = [];
+let sarcomereLength = 2.5; // Current length (changes during contraction)
+const restingLength = 2.5;
+const contractedLength = 1.8;
 
 // ============================================
 // INITIALIZATION
@@ -39,29 +33,28 @@ let zLines = [];
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1018); // Warmer, brighter background
-  scene.fog = new THREE.Fog(0x1a1018, 40, 100); // Push fog way back
+  scene.background = new THREE.Color(0x0a0a12);
 
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 8, 20);
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 2, 5);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 1.2;
   document.getElementById('canvas-container').appendChild(renderer.domElement);
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
-  controls.minDistance = 5;
-  controls.maxDistance = 40;
+  controls.minDistance = 2;
+  controls.maxDistance = 15;
   controls.autoRotate = true;
-  controls.autoRotateSpeed = 0.2;
+  controls.autoRotateSpeed = 0.3;
 
   setupLighting();
-  createMuscleFiber();
+  createSarcomere();
   createEnvironment();
   setupEventListeners();
   animate();
@@ -72,464 +65,357 @@ function init() {
 // ============================================
 
 function setupLighting() {
-  // Much brighter ambient light
-  const ambient = new THREE.AmbientLight(0x555566, 2.0);
+  const ambient = new THREE.AmbientLight(0x404060, 1.5);
   scene.add(ambient);
 
-  // Strong main light
-  const mainLight = new THREE.DirectionalLight(0xfff0f5, 2.5);
-  mainLight.position.set(10, 15, 10);
-  scene.add(mainLight);
+  // Main key light
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+  keyLight.position.set(5, 8, 5);
+  scene.add(keyLight);
 
-  // Pink fill for muscle aesthetic
-  const fillLight = new THREE.DirectionalLight(0xec4899, 1.0);
-  fillLight.position.set(-10, 0, -5);
-  scene.add(fillLight);
+  // Pink accent for myosin
+  const pinkLight = new THREE.DirectionalLight(0xff6699, 0.8);
+  pinkLight.position.set(-5, 2, 3);
+  scene.add(pinkLight);
 
-  // Cyan rim light for contrast
-  const rimLight = new THREE.DirectionalLight(0x22d3ee, 0.8);
-  rimLight.position.set(0, -5, 10);
+  // Cyan accent for actin
+  const cyanLight = new THREE.DirectionalLight(0x00ccff, 0.6);
+  cyanLight.position.set(5, -2, -3);
+  scene.add(cyanLight);
+
+  // Rim light
+  const rimLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  rimLight.position.set(0, -5, -5);
   scene.add(rimLight);
-
-  // Back light
-  const backLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  backLight.position.set(-5, 10, -15);
-  scene.add(backLight);
-
-  // Bottom fill
-  const bottomLight = new THREE.DirectionalLight(0xffddee, 0.6);
-  bottomLight.position.set(0, -10, 0);
-  scene.add(bottomLight);
-
-  // Strong glow from mitochondria
-  const pointLight = new THREE.PointLight(0xa855f7, 1.0, 30);
-  pointLight.position.set(0, 0, 0);
-  scene.add(pointLight);
 }
 
 // ============================================
-// MUSCLE FIBER STRUCTURE
+// SARCOMERE STRUCTURE
 // ============================================
 
-function createMuscleFiber() {
-  muscleGroup = new THREE.Group();
+function createSarcomere() {
+  sarcomereGroup = new THREE.Group();
 
-  // Create multiple myofibrils in parallel
-  const myofibrilCount = 5;
-  const myofibrilSpacing = 2.5;
+  // Create Z-discs (boundaries)
+  createZDiscs();
 
-  for (let m = 0; m < myofibrilCount; m++) {
-    const yOffset = (m - (myofibrilCount - 1) / 2) * myofibrilSpacing;
-    createMyofibril(0, yOffset, 0);
-  }
+  // Create M-line (center)
+  createMLine();
 
-  // Create sarcolemma (cell membrane)
-  createSarcolemma();
+  // Create thick filaments (myosin) with heads
+  createThickFilaments();
 
-  // Create peripheral nuclei
-  createNuclei();
+  // Create thin filaments (actin)
+  createThinFilaments();
 
-  // Create mitochondria between myofibrils
-  createMitochondria();
+  // Create titin (elastic connector)
+  createTitin();
 
-  // Create T-tubules and SR
-  createTTubuleSystem();
-
-  scene.add(muscleGroup);
+  scene.add(sarcomereGroup);
 }
 
 // ============================================
-// MYOFIBRIL - Chain of sarcomeres
+// Z-DISCS (Sarcomere boundaries)
 // ============================================
 
-function createMyofibril(x, y, z) {
-  const myofibrilGroup = new THREE.Group();
-  myofibrilGroup.position.set(x, y, z);
-
-  // Each myofibril has multiple sarcomeres in series
-  const sarcomereCount = 6;
-  const sarcomereLength = 3.0; // ~3μm at rest
-
-  for (let s = 0; s < sarcomereCount; s++) {
-    const xOffset = (s - (sarcomereCount - 1) / 2) * sarcomereLength;
-    createSarcomere(myofibrilGroup, xOffset, 0, 0, s);
-  }
-
-  muscleGroup.add(myofibrilGroup);
-}
-
-// ============================================
-// SARCOMERE - The contractile unit
-// ============================================
-
-function createSarcomere(parent, x, y, z, index) {
-  const sarcomereGroup = new THREE.Group();
-  sarcomereGroup.position.set(x, y, z);
-  sarcomereGroup.userData.index = index;
-  sarcomereGroup.userData.originalX = x;
-
-  // Sarcomere dimensions (scaled: 1 unit ≈ 1μm)
-  const sarcomereLength = 3.0;
-  const aBandLength = 1.6;
-  const thickFilamentLength = 1.65;
-  const thinFilamentLength = 1.0;
-
-  // ---- Z-LINES (boundaries) ----
-  const zLineMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xfbbf24,
+function createZDiscs() {
+  const zDiscMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xffd700,
     roughness: 0.3,
-    metalness: 0.2,
-    emissive: 0xb45309,
+    metalness: 0.4,
+    emissive: 0xcc9900,
     emissiveIntensity: 0.3,
   });
 
-  // Left Z-line
-  const zLineGeometry = new THREE.BoxGeometry(0.08, 1.8, 1.8);
-  const zLineLeft = new THREE.Mesh(zLineGeometry, zLineMaterial);
-  zLineLeft.position.x = -sarcomereLength / 2;
-  sarcomereGroup.add(zLineLeft);
-  zLines.push(zLineLeft);
+  const zDiscGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.08, 32);
 
-  // Right Z-line (shared with next sarcomere, only add for last)
-  if (index === 5) {
-    const zLineRight = new THREE.Mesh(zLineGeometry, zLineMaterial);
-    zLineRight.position.x = sarcomereLength / 2;
-    sarcomereGroup.add(zLineRight);
-    zLines.push(zLineRight);
+  // Left Z-disc
+  const leftZDisc = new THREE.Mesh(zDiscGeometry, zDiscMaterial);
+  leftZDisc.position.x = -restingLength / 2;
+  leftZDisc.rotation.z = Math.PI / 2;
+  leftZDisc.userData.side = 'left';
+  leftZDisc.userData.baseX = leftZDisc.position.x;
+  sarcomereGroup.add(leftZDisc);
+  zDiscs.push(leftZDisc);
+
+  // Right Z-disc
+  const rightZDisc = new THREE.Mesh(zDiscGeometry, zDiscMaterial);
+  rightZDisc.position.x = restingLength / 2;
+  rightZDisc.rotation.z = Math.PI / 2;
+  rightZDisc.userData.side = 'right';
+  rightZDisc.userData.baseX = rightZDisc.position.x;
+  sarcomereGroup.add(rightZDisc);
+  zDiscs.push(rightZDisc);
+
+  // Add zig-zag pattern on Z-discs
+  const zigzagMaterial = new THREE.LineBasicMaterial({ color: 0xffee88, transparent: true, opacity: 0.6 });
+  for (const zDisc of [leftZDisc, rightZDisc]) {
+    const points = [];
+    for (let i = 0; i <= 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const r = 0.8 + (i % 2) * 0.2;
+      points.push(new THREE.Vector3(0, Math.cos(angle) * r, Math.sin(angle) * r));
+    }
+    const zigzagGeom = new THREE.BufferGeometry().setFromPoints(points);
+    const zigzag = new THREE.Line(zigzagGeom, zigzagMaterial);
+    zigzag.rotation.z = Math.PI / 2;
+    zDisc.add(zigzag);
   }
-
-  // ---- M-LINE (center) ----
-  const mLineMaterial = new THREE.MeshBasicMaterial({
-    color: 0x94a3b8,
-    transparent: true,
-    opacity: 0.6,
-  });
-  const mLineGeometry = new THREE.BoxGeometry(0.04, 1.6, 1.6);
-  const mLine = new THREE.Mesh(mLineGeometry, mLineMaterial);
-  mLine.position.x = 0;
-  sarcomereGroup.add(mLine);
-
-  // ---- THICK FILAMENTS (Myosin) - A-band ----
-  createThickFilaments(sarcomereGroup, thickFilamentLength);
-
-  // ---- THIN FILAMENTS (Actin) - extend from Z-lines ----
-  createThinFilaments(sarcomereGroup, thinFilamentLength, sarcomereLength);
-
-  // ---- A-BAND SHADING (visual guide) ----
-  const aBandMaterial = new THREE.MeshBasicMaterial({
-    color: 0xec4899,
-    transparent: true,
-    opacity: 0.05,
-    side: THREE.DoubleSide,
-  });
-  const aBandGeometry = new THREE.BoxGeometry(aBandLength, 1.7, 1.7);
-  const aBand = new THREE.Mesh(aBandGeometry, aBandMaterial);
-  aBand.position.x = 0;
-  sarcomereGroup.add(aBand);
-
-  sarcomeres.push(sarcomereGroup);
-  parent.add(sarcomereGroup);
 }
 
 // ============================================
-// THICK FILAMENTS (Myosin)
+// M-LINE (Center of sarcomere)
 // ============================================
 
-function createThickFilaments(parent, length) {
-  const thickMaterial = new THREE.MeshPhysicalMaterial({
+function createMLine() {
+  const mLineMaterial = new THREE.MeshBasicMaterial({
+    color: 0x8888aa,
+    transparent: true,
+    opacity: 0.5,
+  });
+
+  const mLineGeometry = new THREE.CylinderGeometry(0.9, 0.9, 0.03, 24);
+  const mLine = new THREE.Mesh(mLineGeometry, mLineMaterial);
+  mLine.rotation.z = Math.PI / 2;
+  sarcomereGroup.add(mLine);
+
+  // M-line cross-links
+  const crossLinkMaterial = new THREE.MeshBasicMaterial({ color: 0x9999bb });
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    const crossLink = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6),
+      crossLinkMaterial
+    );
+    crossLink.position.set(0, Math.cos(angle) * 0.4, Math.sin(angle) * 0.4);
+    crossLink.rotation.x = angle + Math.PI / 2;
+    sarcomereGroup.add(crossLink);
+  }
+}
+
+// ============================================
+// THICK FILAMENTS (Myosin) with heads
+// ============================================
+
+function createThickFilaments() {
+  const myosinMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xec4899,
     roughness: 0.4,
     metalness: 0.1,
-    emissive: 0x831843,
+    emissive: 0x9d174d,
     emissiveIntensity: 0.2,
   });
 
-  // Hexagonal arrangement of thick filaments
-  const rows = 3;
-  const cols = 5;
-  const spacing = 0.25;
-
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const geometry = new THREE.CylinderGeometry(0.04, 0.04, length, 8);
-      const filament = new THREE.Mesh(geometry, thickMaterial);
-
-      // Hexagonal offset
-      const yOffset = (row - (rows - 1) / 2) * spacing;
-      const zOffset = (col - (cols - 1) / 2) * spacing + (row % 2) * (spacing / 2);
-
-      filament.position.set(0, yOffset, zOffset);
-      filament.rotation.z = Math.PI / 2;
-
-      // Add myosin heads (cross-bridges)
-      addMyosinHeads(filament, length);
-
-      parent.add(filament);
-    }
-  }
-}
-
-// ============================================
-// MYOSIN HEADS (Cross-bridges)
-// ============================================
-
-function addMyosinHeads(filament, length) {
-  const headMaterial = new THREE.MeshBasicMaterial({
-    color: 0xf472b6,
-    transparent: true,
-    opacity: 0.8,
+  const headMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xf9a8d4,
+    roughness: 0.3,
+    metalness: 0.0,
+    emissive: 0xec4899,
+    emissiveIntensity: 0.3,
   });
 
-  const headGeometry = new THREE.SphereGeometry(0.025, 6, 6);
+  // Thick filament length (constant - A-band)
+  const thickLength = 1.6;
 
-  // Add heads along the filament (except bare zone in center)
-  const headCount = 12;
-  for (let i = 0; i < headCount; i++) {
-    const xPos = (i - (headCount - 1) / 2) * (length / headCount);
+  // Hexagonal arrangement
+  const positions = [
+    { y: 0, z: 0 },           // Center
+    { y: 0.35, z: 0 },        // Top
+    { y: -0.35, z: 0 },       // Bottom
+    { y: 0.175, z: 0.3 },     // Top-right
+    { y: -0.175, z: 0.3 },    // Bottom-right
+    { y: 0.175, z: -0.3 },    // Top-left
+    { y: -0.175, z: -0.3 },   // Bottom-left
+  ];
 
-    // Skip the H-zone (central bare zone)
-    if (Math.abs(xPos) < 0.2) continue;
+  positions.forEach((pos, filamentIndex) => {
+    // Main thick filament body
+    const geometry = new THREE.CylinderGeometry(0.04, 0.04, thickLength, 12);
+    const filament = new THREE.Mesh(geometry, myosinMaterial);
+    filament.position.set(0, pos.y, pos.z);
+    filament.rotation.z = Math.PI / 2;
+    sarcomereGroup.add(filament);
 
-    const angle = (i * 137.5) * (Math.PI / 180); // Golden angle for spiral
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.set(
-      xPos,
-      Math.cos(angle) * 0.06,
-      Math.sin(angle) * 0.06
-    );
-    filament.add(head);
-  }
+    // Add myosin heads along the filament (except bare zone)
+    const headsPerSide = 8;
+    for (let side = -1; side <= 1; side += 2) { // Left and right sides
+      for (let i = 0; i < headsPerSide; i++) {
+        const xPos = side * (0.15 + i * 0.08); // Start from bare zone edge
+
+        // Skip if in bare zone (H-zone)
+        if (Math.abs(xPos) < 0.12) continue;
+
+        // Spiral arrangement (golden angle)
+        const spiralAngle = (i * 137.5 + filamentIndex * 60) * (Math.PI / 180);
+
+        // Create myosin head (two-domain structure)
+        const headGroup = new THREE.Group();
+
+        // Neck/lever arm
+        const neckGeom = new THREE.CylinderGeometry(0.015, 0.02, 0.12, 6);
+        const neck = new THREE.Mesh(neckGeom, headMaterial);
+        neck.position.y = 0.06;
+        neck.rotation.z = 0.3 * side; // Angled outward
+        headGroup.add(neck);
+
+        // Head/motor domain (pear-shaped)
+        const motorGeom = new THREE.SphereGeometry(0.035, 8, 6);
+        motorGeom.scale(1, 1.3, 1);
+        const motor = new THREE.Mesh(motorGeom, headMaterial);
+        motor.position.y = 0.13;
+        headGroup.add(motor);
+
+        // Position the head
+        headGroup.position.set(xPos, pos.y, pos.z);
+        headGroup.rotation.x = spiralAngle;
+
+        // Store for animation
+        headGroup.userData = {
+          baseX: xPos,
+          baseRotation: spiralAngle,
+          filamentY: pos.y,
+          filamentZ: pos.z,
+          side: side,
+          phase: Math.random() * Math.PI * 2, // Random phase for asynchronous movement
+        };
+
+        myosinHeads.push(headGroup);
+        sarcomereGroup.add(headGroup);
+      }
+    }
+  });
 }
 
 // ============================================
 // THIN FILAMENTS (Actin)
 // ============================================
 
-function createThinFilaments(parent, length, sarcomereLength) {
-  const thinMaterial = new THREE.MeshPhysicalMaterial({
+function createThinFilaments() {
+  const actinMaterial = new THREE.MeshPhysicalMaterial({
     color: 0x22d3ee,
     roughness: 0.3,
     metalness: 0.0,
     emissive: 0x0891b2,
-    emissiveIntensity: 0.2,
+    emissiveIntensity: 0.25,
     transparent: true,
     opacity: 0.9,
   });
 
-  // Each thin filament extends from Z-line toward center
-  const rows = 4;
-  const cols = 6;
-  const spacing = 0.2;
+  // Actin filaments extend from Z-disc toward center
+  const actinLength = 1.0;
 
-  // Left side (from left Z-line toward M-line)
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const geometry = new THREE.CylinderGeometry(0.02, 0.02, length, 6);
-      const filament = new THREE.Mesh(geometry, thinMaterial.clone());
+  // Positions (between myosin filaments)
+  const positions = [
+    { y: 0.2, z: 0.15 },
+    { y: -0.2, z: 0.15 },
+    { y: 0.2, z: -0.15 },
+    { y: -0.2, z: -0.15 },
+    { y: 0, z: 0.25 },
+    { y: 0, z: -0.25 },
+  ];
 
-      const yOffset = (row - (rows - 1) / 2) * spacing + 0.1;
-      const zOffset = (col - (cols - 1) / 2) * spacing + 0.1;
+  positions.forEach((pos) => {
+    // Left side (from left Z-disc)
+    const leftActin = createActinFilament(actinMaterial, actinLength);
+    leftActin.position.set(-restingLength / 2 + actinLength / 2 + 0.05, pos.y, pos.z);
+    leftActin.userData = { side: 'left', baseX: leftActin.position.x, y: pos.y, z: pos.z };
+    actinFilaments.push(leftActin);
+    sarcomereGroup.add(leftActin);
 
-      // Position starting from Z-line
-      filament.position.set(-sarcomereLength / 2 + length / 2, yOffset, zOffset);
-      filament.rotation.z = Math.PI / 2;
+    // Right side (from right Z-disc)
+    const rightActin = createActinFilament(actinMaterial, actinLength);
+    rightActin.position.set(restingLength / 2 - actinLength / 2 - 0.05, pos.y, pos.z);
+    rightActin.rotation.y = Math.PI; // Flip for opposite polarity
+    rightActin.userData = { side: 'right', baseX: rightActin.position.x, y: pos.y, z: pos.z };
+    actinFilaments.push(rightActin);
+    sarcomereGroup.add(rightActin);
+  });
+}
 
-      filament.userData.side = 'left';
-      filament.userData.originalX = filament.position.x;
-      thinFilaments.push(filament);
-      parent.add(filament);
-    }
+function createActinFilament(material, length) {
+  const group = new THREE.Group();
+
+  // Main filament (double helix structure)
+  const helixPoints1 = [];
+  const helixPoints2 = [];
+  const segments = 40;
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const x = (t - 0.5) * length;
+    const angle = t * Math.PI * 6; // 3 full turns
+    const radius = 0.025;
+
+    helixPoints1.push(new THREE.Vector3(x, Math.cos(angle) * radius, Math.sin(angle) * radius));
+    helixPoints2.push(new THREE.Vector3(x, Math.cos(angle + Math.PI) * radius, Math.sin(angle + Math.PI) * radius));
   }
 
-  // Right side (from right Z-line toward M-line)
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const geometry = new THREE.CylinderGeometry(0.02, 0.02, length, 6);
-      const filament = new THREE.Mesh(geometry, thinMaterial.clone());
+  const curve1 = new THREE.CatmullRomCurve3(helixPoints1);
+  const curve2 = new THREE.CatmullRomCurve3(helixPoints2);
 
-      const yOffset = (row - (rows - 1) / 2) * spacing + 0.1;
-      const zOffset = (col - (cols - 1) / 2) * spacing + 0.1;
+  const tubeGeom1 = new THREE.TubeGeometry(curve1, 30, 0.015, 6, false);
+  const tubeGeom2 = new THREE.TubeGeometry(curve2, 30, 0.015, 6, false);
 
-      filament.position.set(sarcomereLength / 2 - length / 2, yOffset, zOffset);
-      filament.rotation.z = Math.PI / 2;
+  group.add(new THREE.Mesh(tubeGeom1, material));
+  group.add(new THREE.Mesh(tubeGeom2, material));
 
-      filament.userData.side = 'right';
-      filament.userData.originalX = filament.position.x;
-      thinFilaments.push(filament);
-      parent.add(filament);
-    }
-  }
-}
-
-// ============================================
-// SARCOLEMMA (Cell membrane)
-// ============================================
-
-function createSarcolemma() {
-  // More visible membrane with subtle glow
-  const membraneMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xfda4af,
-    roughness: 0.3,
-    metalness: 0.0,
-    transmission: 0.5,
-    thickness: 0.3,
-    transparent: true,
-    opacity: 0.25, // More visible
-    emissive: 0xff8899,
-    emissiveIntensity: 0.1,
-    side: THREE.DoubleSide,
-  });
-
-  // Cylindrical membrane around the fiber
-  const geometry = new THREE.CylinderGeometry(7, 7, 20, 32, 1, true);
-  const membrane = new THREE.Mesh(geometry, membraneMaterial);
-  membrane.rotation.z = Math.PI / 2;
-  muscleGroup.add(membrane);
-
-  // End caps
-  const capGeometry = new THREE.CircleGeometry(7, 32);
-  const capMaterial = membraneMaterial.clone();
-  capMaterial.opacity = 0.1;
-
-  const leftCap = new THREE.Mesh(capGeometry, capMaterial);
-  leftCap.position.x = -10;
-  leftCap.rotation.y = Math.PI / 2;
-  muscleGroup.add(leftCap);
-
-  const rightCap = new THREE.Mesh(capGeometry, capMaterial);
-  rightCap.position.x = 10;
-  rightCap.rotation.y = -Math.PI / 2;
-  muscleGroup.add(rightCap);
-}
-
-// ============================================
-// NUCLEI (Peripheral, multinucleated)
-// Using shared organelle library
-// ============================================
-
-function createNuclei() {
-  const nucleusCount = 8;
-  for (let i = 0; i < nucleusCount; i++) {
-    // Position at periphery (subsarcolemmal)
-    const angle = (i / nucleusCount) * Math.PI * 2;
-    const xPos = (i - (nucleusCount - 1) / 2) * 2.2;
-
-    const nucleus = createMuscleNucleus({
-      position: new THREE.Vector3(xPos, Math.cos(angle) * 6, Math.sin(angle) * 6),
-      length: 2.0,
-      radius: 0.5,
-      organelleName: 'Nucleus'
-    });
-
-    muscleGroup.add(nucleus);
-  }
-}
-
-// ============================================
-// MITOCHONDRIA (Between myofibrils)
-// Using shared organelle library
-// ============================================
-
-function createMitochondria() {
-  // Research-based: Muscle fibers have 300-600 mitochondria
-  // Occupying 2-10% of cell volume depending on fiber type
-  // Arranged: 60% between myofibrils, 25% near Z-lines, 15% subsarcolemmal
-
-  // Generate positions using the shared library
-  const positions = generateMuscleMitochondriaPositions({
-    count: 180,
-    fiberLength: 18,
-    fiberRadius: 6,
-    intermyofibrillarRatio: 0.6,
-    subsarcolemmalRatio: 0.15,
-    zLineRatio: 0.25,
-    sarcomereLength: 3.0
-  });
-
-  // Create mitochondria using the shared factory with interior glow
-  const mitochondriaGroup = createMitochondriaField(positions, {
-    lengthRange: [0.5, 0.9],
-    radiusRange: [0.12, 0.22],
-    includeCristae: true,
-    includeGlow: true,
-    includeInteriorLight: true,
-    interiorLightFrequency: 0.4, // 40% have interior lights (many mitochondria)
-    organelleName: 'Mitochondria'
-  });
-
-  muscleGroup.add(mitochondriaGroup);
-
-  console.log(`Created ${positions.length} mitochondria using shared library`);
-}
-
-// ============================================
-// T-TUBULE SYSTEM & SARCOPLASMIC RETICULUM
-// ============================================
-
-function createTTubuleSystem() {
-  // T-tubules at A-I junctions
-  const tTubuleMaterial = new THREE.MeshBasicMaterial({
-    color: 0x0ea5e9,
-    transparent: true,
-    opacity: 0.4,
-  });
-
-  const srMaterial = new THREE.MeshPhysicalMaterial({
+  // Add troponin-tropomyosin complex (regulatory proteins)
+  const tropMaterial = new THREE.MeshBasicMaterial({
     color: 0x10b981,
-    roughness: 0.4,
-    metalness: 0.0,
+    transparent: true,
+    opacity: 0.6,
+  });
+
+  for (let i = 0; i < 3; i++) {
+    const t = (i + 0.5) / 3;
+    const x = (t - 0.5) * length;
+    const troponin = new THREE.Mesh(
+      new THREE.SphereGeometry(0.025, 6, 6),
+      tropMaterial
+    );
+    troponin.position.x = x;
+    group.add(troponin);
+  }
+
+  return group;
+}
+
+// ============================================
+// TITIN (Elastic filament)
+// ============================================
+
+function createTitin() {
+  const titinMaterial = new THREE.MeshBasicMaterial({
+    color: 0xa855f7,
     transparent: true,
     opacity: 0.3,
   });
 
-  // Create triads at each A-I junction
-  const sarcomereLength = 3.0;
-  const triadPositions = [];
+  // Titin connects Z-disc to M-line
+  const titinPositions = [
+    { y: 0.5, z: 0 },
+    { y: -0.5, z: 0 },
+    { y: 0, z: 0.45 },
+    { y: 0, z: -0.45 },
+  ];
 
-  for (let s = 0; s < 6; s++) {
-    const sarcomereX = (s - 2.5) * sarcomereLength;
-    // Two triads per sarcomere (at each A-I junction)
-    triadPositions.push(sarcomereX - sarcomereLength * 0.35);
-    triadPositions.push(sarcomereX + sarcomereLength * 0.35);
-  }
-
-  triadPositions.forEach((xPos) => {
-    // T-tubule (vertical cylinder penetrating the fiber)
-    const tTubeGeometry = new THREE.CylinderGeometry(0.06, 0.06, 12, 8);
-    const tTube = new THREE.Mesh(tTubeGeometry, tTubuleMaterial);
-    tTube.position.set(xPos, 0, 0);
-    muscleGroup.add(tTube);
-
-    // Terminal cisternae (SR on both sides)
-    for (let side of [-1, 1]) {
-      const srGeometry = new THREE.TorusGeometry(0.15, 0.06, 8, 16);
-      const sr = new THREE.Mesh(srGeometry, srMaterial);
-      sr.position.set(xPos + side * 0.12, 0, 0);
-      sr.rotation.y = Math.PI / 2;
-      muscleGroup.add(sr);
+  titinPositions.forEach((pos) => {
+    // Create spring-like structure
+    const points = [];
+    const coils = 8;
+    for (let i = 0; i <= coils * 10; i++) {
+      const t = i / (coils * 10);
+      const x = (t - 0.5) * restingLength * 0.9;
+      const angle = t * coils * Math.PI * 2;
+      const r = 0.03;
+      points.push(new THREE.Vector3(x, pos.y + Math.cos(angle) * r, pos.z + Math.sin(angle) * r));
     }
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    const geometry = new THREE.TubeGeometry(curve, 60, 0.008, 4, false);
+    const titin = new THREE.Mesh(geometry, titinMaterial);
+    sarcomereGroup.add(titin);
   });
-
-  // Longitudinal SR network (simplified)
-  for (let y = -5; y <= 5; y += 2.5) {
-    const srNetworkMaterial = new THREE.MeshBasicMaterial({
-      color: 0x059669,
-      transparent: true,
-      opacity: 0.15,
-    });
-
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-9, y, 0.5),
-      new THREE.Vector3(-4, y, 0.3),
-      new THREE.Vector3(0, y, 0.5),
-      new THREE.Vector3(4, y, 0.3),
-      new THREE.Vector3(9, y, 0.5),
-    ]);
-
-    const geometry = new THREE.TubeGeometry(curve, 30, 0.04, 6, false);
-    const srNetwork = new THREE.Mesh(geometry, srNetworkMaterial);
-    muscleGroup.add(srNetwork);
-  }
 }
 
 // ============================================
@@ -537,29 +423,25 @@ function createTTubuleSystem() {
 // ============================================
 
 function createEnvironment() {
-  // Background sphere for depth
-  const bgGeometry = new THREE.SphereGeometry(60, 32, 32);
-  const bgMaterial = new THREE.MeshBasicMaterial({
-    color: 0x2a1a28,
-    side: THREE.BackSide,
-  });
-  const bgSphere = new THREE.Mesh(bgGeometry, bgMaterial);
-  scene.add(bgSphere);
+  // Subtle grid for scale reference
+  const gridHelper = new THREE.GridHelper(10, 20, 0x222244, 0x111133);
+  gridHelper.position.y = -1.5;
+  scene.add(gridHelper);
 
-  // Background particles (extracellular matrix) - more visible
-  const particleCount = 300;
+  // Background particles (cytoplasm)
+  const particleCount = 200;
   const positions = new Float32Array(particleCount * 3);
   const colors = new Float32Array(particleCount * 3);
 
   for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 60;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 40;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+    positions[i * 3] = (Math.random() - 0.5) * 8;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 6;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 8;
 
-    // Pink/magenta tissue tones
-    colors[i * 3] = 0.6 + Math.random() * 0.3;     // R
-    colors[i * 3 + 1] = 0.3 + Math.random() * 0.2; // G
-    colors[i * 3 + 2] = 0.4 + Math.random() * 0.3; // B
+    // Subtle blue-purple tones
+    colors[i * 3] = 0.3 + Math.random() * 0.2;
+    colors[i * 3 + 1] = 0.3 + Math.random() * 0.2;
+    colors[i * 3 + 2] = 0.5 + Math.random() * 0.3;
   }
 
   const geometry = new THREE.BufferGeometry();
@@ -567,48 +449,18 @@ function createEnvironment() {
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.2,
+    size: 0.03,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.4,
     vertexColors: true,
   });
 
   const particles = new THREE.Points(geometry, material);
   scene.add(particles);
-
-  // Add some collagen fiber bundles in background
-  const collagenMaterial = new THREE.MeshBasicMaterial({
-    color: 0x996688,
-    transparent: true,
-    opacity: 0.3,
-  });
-
-  for (let i = 0; i < 12; i++) {
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 40,
-        (Math.random() - 0.5) * 25,
-        -15 - Math.random() * 20
-      ),
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 40,
-        (Math.random() - 0.5) * 25,
-        -15 - Math.random() * 20
-      ),
-      new THREE.Vector3(
-        (Math.random() - 0.5) * 40,
-        (Math.random() - 0.5) * 25,
-        -15 - Math.random() * 20
-      ),
-    ]);
-    const tubeGeometry = new THREE.TubeGeometry(curve, 20, 0.3 + Math.random() * 0.3, 8, false);
-    const fiber = new THREE.Mesh(tubeGeometry, collagenMaterial);
-    scene.add(fiber);
-  }
 }
 
 // ============================================
-// ANIMATION
+// ANIMATION - The Power Stroke
 // ============================================
 
 function animate() {
@@ -616,43 +468,67 @@ function animate() {
 
   const time = clock.getElapsedTime();
 
-  // Subtle breathing motion
-  if (muscleGroup) {
-    muscleGroup.position.y = Math.sin(time * 0.3) * 0.1;
-  }
-
-  // Contraction animation
   if (isContracting) {
-    contractionPhase += 0.02;
-    const contractAmount = Math.sin(contractionPhase) * 0.3;
+    contractionPhase += 0.015;
 
-    // Animate thin filaments sliding toward M-line
-    thinFilaments.forEach((filament) => {
-      const originalX = filament.userData.originalX;
-      if (filament.userData.side === 'left') {
-        filament.position.x = originalX + contractAmount;
+    // Calculate current sarcomere length (oscillates between resting and contracted)
+    const contractionAmount = (Math.sin(contractionPhase) + 1) / 2; // 0 to 1
+    sarcomereLength = restingLength - (restingLength - contractedLength) * contractionAmount;
+
+    // Move Z-discs
+    zDiscs.forEach((zDisc) => {
+      if (zDisc.userData.side === 'left') {
+        zDisc.position.x = -sarcomereLength / 2;
       } else {
-        filament.position.x = originalX - contractAmount;
+        zDisc.position.x = sarcomereLength / 2;
       }
     });
 
-    // Animate Z-lines coming closer
-    zLines.forEach((zLine, i) => {
-      const baseX = zLine.position.x;
-      if (baseX < 0) {
-        zLine.position.x = baseX + contractAmount * 0.5;
-      } else if (baseX > 0) {
-        zLine.position.x = baseX - contractAmount * 0.5;
+    // Slide actin filaments (the key visual!)
+    actinFilaments.forEach((actin) => {
+      const slideAmount = (restingLength - sarcomereLength) / 2;
+      if (actin.userData.side === 'left') {
+        actin.position.x = actin.userData.baseX + slideAmount;
+      } else {
+        actin.position.x = actin.userData.baseX - slideAmount;
       }
+    });
+
+    // Animate myosin heads (power stroke)
+    myosinHeads.forEach((head) => {
+      const { phase, side } = head.userData;
+
+      // Power stroke cycle
+      const cyclePhase = (contractionPhase * 2 + phase) % (Math.PI * 2);
+      const attached = cyclePhase < Math.PI; // First half: attached and pulling
+
+      if (attached) {
+        // Attached state - rotate to pull
+        const pullAmount = Math.sin(cyclePhase) * 0.5;
+        head.rotation.z = pullAmount * side;
+        head.children.forEach(child => {
+          child.material.emissiveIntensity = 0.5; // Glowing when active
+        });
+      } else {
+        // Detached state - reset
+        const resetProgress = (cyclePhase - Math.PI) / Math.PI;
+        head.rotation.z = (1 - resetProgress) * 0.5 * side * -1;
+        head.children.forEach(child => {
+          child.material.emissiveIntensity = 0.2;
+        });
+      }
+    });
+  } else {
+    // Subtle idle animation
+    myosinHeads.forEach((head, i) => {
+      head.rotation.z = Math.sin(time * 0.5 + i * 0.1) * 0.05;
     });
   }
 
-  // Subtle filament shimmer
-  thinFilaments.forEach((filament, i) => {
-    if (filament.material.emissiveIntensity !== undefined) {
-      filament.material.emissiveIntensity = 0.2 + Math.sin(time * 2 + i * 0.1) * 0.1;
-    }
-  });
+  // Gentle rotation of whole structure
+  if (sarcomereGroup) {
+    sarcomereGroup.rotation.y = Math.sin(time * 0.1) * 0.1;
+  }
 
   controls.update();
   renderer.render(scene, camera);
@@ -673,25 +549,25 @@ function setupEventListeners() {
   const introModal = document.getElementById('intro-modal');
   const uiOverlay = document.getElementById('ui-overlay');
 
-  startBtn.addEventListener('click', () => {
+  startBtn?.addEventListener('click', () => {
     introModal.classList.add('hidden');
     uiOverlay.classList.remove('hidden');
-    gsapLikeAnimation(camera.position, { x: 0, y: 5, z: 15 }, 1500);
+    gsapLikeAnimation(camera.position, { x: 0, y: 1.5, z: 4 }, 1500);
   });
 
   const infoBtn = document.getElementById('info-btn');
   const infoModal = document.getElementById('info-modal');
   const closeInfoBtn = document.getElementById('close-info-btn');
 
-  infoBtn.addEventListener('click', () => {
+  infoBtn?.addEventListener('click', () => {
     infoModal.classList.remove('hidden');
   });
 
-  closeInfoBtn.addEventListener('click', () => {
+  closeInfoBtn?.addEventListener('click', () => {
     infoModal.classList.add('hidden');
   });
 
-  infoModal.addEventListener('click', (e) => {
+  infoModal?.addEventListener('click', (e) => {
     if (e.target === infoModal) {
       infoModal.classList.add('hidden');
     }
@@ -700,42 +576,58 @@ function setupEventListeners() {
   const zoomInBtn = document.getElementById('zoom-in-btn');
   const zoomOutBtn = document.getElementById('zoom-out-btn');
 
-  zoomInBtn.addEventListener('click', () => {
+  zoomInBtn?.addEventListener('click', () => {
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
-    camera.position.addScaledVector(direction, 2);
+    camera.position.addScaledVector(direction, 1);
   });
 
-  zoomOutBtn.addEventListener('click', () => {
+  zoomOutBtn?.addEventListener('click', () => {
     const direction = new THREE.Vector3();
     camera.getWorldDirection(direction);
-    camera.position.addScaledVector(direction, -2);
+    camera.position.addScaledVector(direction, -1);
   });
 
   const contractBtn = document.getElementById('contract-btn');
-  contractBtn.addEventListener('click', () => {
+  contractBtn?.addEventListener('click', () => {
     isContracting = !isContracting;
     contractBtn.classList.toggle('bg-pink-600/30', isContracting);
+    contractBtn.textContent = isContracting ? 'Stop Contraction' : 'Contract';
 
     if (!isContracting) {
-      // Reset positions
-      contractionPhase = 0;
-      thinFilaments.forEach((filament) => {
-        filament.position.x = filament.userData.originalX;
-      });
+      // Reset to resting state
+      resetSarcomere();
     }
   });
 
   const resetBtn = document.getElementById('reset-btn');
-  resetBtn.addEventListener('click', () => {
-    gsapLikeAnimation(camera.position, { x: 0, y: 5, z: 15 }, 1000);
+  resetBtn?.addEventListener('click', () => {
+    gsapLikeAnimation(camera.position, { x: 0, y: 1.5, z: 4 }, 1000);
     controls.target.set(0, 0, 0);
     isContracting = false;
-    contractionPhase = 0;
+    resetSarcomere();
+  });
+}
 
-    // Reset filament positions
-    thinFilaments.forEach((filament) => {
-      filament.position.x = filament.userData.originalX;
+function resetSarcomere() {
+  contractionPhase = 0;
+  sarcomereLength = restingLength;
+
+  // Reset Z-discs
+  zDiscs.forEach((zDisc) => {
+    zDisc.position.x = zDisc.userData.baseX;
+  });
+
+  // Reset actin
+  actinFilaments.forEach((actin) => {
+    actin.position.x = actin.userData.baseX;
+  });
+
+  // Reset myosin heads
+  myosinHeads.forEach((head) => {
+    head.rotation.z = 0;
+    head.children.forEach(child => {
+      if (child.material) child.material.emissiveIntensity = 0.2;
     });
   });
 }

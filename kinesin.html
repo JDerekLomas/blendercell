@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sarcomere - Molecular View of Muscle Contraction</title>
+  <title>Kinesin Motor - Molecular Transport Visualization</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -37,7 +37,7 @@
     body {
       font-family: system-ui, -apple-system, sans-serif;
       overflow: hidden;
-      background: #0a0612;
+      background: #050510;
     }
     #canvas-container {
       width: 100vw;
@@ -49,26 +49,19 @@
     .glass {
       background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(236, 72, 153, 0.2);
+      border: 1px solid rgba(168, 85, 247, 0.2);
     }
     .glass-strong {
       background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(16px);
-      border: 1px solid rgba(236, 72, 153, 0.3);
+      border: 1px solid rgba(168, 85, 247, 0.3);
     }
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 20px rgba(236, 72, 153, 0.3); }
-      50% { box-shadow: 0 0 40px rgba(236, 72, 153, 0.5); }
+    @keyframes walk-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.5); }
     }
-    .pulse-glow {
-      animation: pulse-glow 2s ease-in-out infinite;
-    }
-    @keyframes contract {
-      0%, 100% { transform: scaleX(1); }
-      50% { transform: scaleX(0.85); }
-    }
-    .contract-animation {
-      animation: contract 1.5s ease-in-out infinite;
+    .walk-pulse {
+      animation: walk-pulse 1s ease-in-out infinite;
     }
   </style>
 </head>
@@ -78,35 +71,34 @@
   <!-- Intro Modal -->
   <div id="intro-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
     <div class="glass-strong rounded-2xl p-8 max-w-lg w-full text-center">
-      <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-pink-900/50 flex items-center justify-center pulse-glow">
-        <svg class="w-12 h-12 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <rect x="4" y="8" width="16" height="8" rx="2" stroke-width="2"/>
-          <path stroke-linecap="round" stroke-width="2" d="M8 8v8M12 8v8M16 8v8"/>
+      <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-purple-900/50 flex items-center justify-center walk-pulse">
+        <svg class="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
       </div>
-      <h1 class="text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
-        The Sarcomere
+      <h1 class="text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">
+        Kinesin Motor Protein
       </h1>
       <p class="text-slate-300 mb-6 leading-relaxed">
-        Dive into the molecular machinery of muscle contraction. Watch myosin heads
-        perform the power stroke, pulling actin filaments inward to shorten the sarcomere.
-        This is how every movement in your body is generated.
+        Watch a molecular motor "walk" along a microtubule, carrying cargo across the cell.
+        Kinesin uses ATP hydrolysis to power its hand-over-hand stepping motion toward
+        the plus end of microtubules.
       </p>
       <div class="grid grid-cols-3 gap-4 mb-6 text-sm">
         <div class="bg-slate-800/50 rounded-lg p-3">
-          <div class="text-pink-400 font-bold text-lg">~2.5μm</div>
-          <div class="text-slate-400">Resting length</div>
+          <div class="text-purple-400 font-bold text-lg">8 nm</div>
+          <div class="text-slate-400">Step size</div>
         </div>
         <div class="bg-slate-800/50 rounded-lg p-3">
-          <div class="text-pink-400 font-bold text-lg">~1.8μm</div>
-          <div class="text-slate-400">Contracted</div>
+          <div class="text-purple-400 font-bold text-lg">~100</div>
+          <div class="text-slate-400">Steps/second</div>
         </div>
         <div class="bg-slate-800/50 rounded-lg p-3">
-          <div class="text-pink-400 font-bold text-lg">5nm</div>
-          <div class="text-slate-400">Power stroke</div>
+          <div class="text-purple-400 font-bold text-lg">1 ATP</div>
+          <div class="text-slate-400">Per step</div>
         </div>
       </div>
-      <button id="start-btn" class="w-full py-3 px-6 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 rounded-xl font-semibold transition-all duration-300 hover:scale-105">
+      <button id="start-btn" class="w-full py-3 px-6 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 rounded-xl font-semibold transition-all duration-300 hover:scale-105">
         Begin Exploration
       </button>
     </div>
@@ -123,8 +115,20 @@
         <span class="text-sm font-medium">Cell Atlas</span>
       </a>
       <div class="glass rounded-xl px-4 py-2">
-        <h2 class="text-lg font-bold text-pink-400">Sarcomere</h2>
-        <p class="text-xs text-slate-400">Molecular View</p>
+        <h2 class="text-lg font-bold text-purple-400">Kinesin</h2>
+        <p class="text-xs text-slate-400">Molecular Motor</p>
+      </div>
+      <!-- ATP Counter -->
+      <div class="glass rounded-xl px-4 py-2 flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-amber-500/30 flex items-center justify-center">
+          <svg class="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/>
+          </svg>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400">ATP Used</div>
+          <div class="text-xl font-bold text-amber-400" id="atp-counter">0</div>
+        </div>
       </div>
     </div>
 
@@ -132,7 +136,7 @@
     <div class="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-auto">
       <!-- Info button -->
       <button id="info-btn" class="glass rounded-xl p-3 hover:bg-slate-800/80 transition-colors">
-        <svg class="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </button>
@@ -150,10 +154,8 @@
           </svg>
         </button>
         <div class="w-px bg-slate-600"></div>
-        <button id="contract-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="Toggle Contraction">
-          <svg class="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
-          </svg>
+        <button id="walk-btn" class="px-3 py-2 hover:bg-slate-700/50 rounded-lg transition-colors text-purple-400 font-medium bg-purple-600/30" title="Toggle Walking">
+          Pause
         </button>
         <div class="w-px bg-slate-600"></div>
         <button id="reset-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" title="Reset View">
@@ -168,28 +170,24 @@
         <div class="text-xs text-slate-400 mb-2">Components</div>
         <div class="space-y-1 text-xs">
           <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-pink-500"></div>
-            <span>Myosin (thick)</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-pink-300"></div>
-            <span>Myosin heads</span>
-          </div>
-          <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-cyan-400"></div>
-            <span>Actin (thin)</span>
+            <span>Microtubule</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+            <span>Kinesin heads</span>
           </div>
           <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-amber-400"></div>
-            <span>Z-disc</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full bg-purple-400"></div>
-            <span>Titin</span>
+            <span>ATP / Cargo</span>
           </div>
           <div class="flex items-center gap-2">
             <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
-            <span>Troponin</span>
+            <span>+ end</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-red-400"></div>
+            <span>− end</span>
           </div>
         </div>
       </div>
@@ -200,7 +198,7 @@
   <div id="info-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 hidden">
     <div class="glass-strong rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-start mb-4">
-        <h2 class="text-2xl font-bold text-pink-400">Sarcomere Molecular Structure</h2>
+        <h2 class="text-2xl font-bold text-purple-400">Kinesin Motor Mechanism</h2>
         <button id="close-info-btn" class="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -210,71 +208,84 @@
 
       <div class="space-y-4 text-slate-300">
         <section>
-          <h3 class="text-lg font-semibold text-pink-300 mb-2">Myosin (Thick Filaments)</h3>
+          <h3 class="text-lg font-semibold text-purple-300 mb-2">The Microtubule Track</h3>
           <p class="text-sm leading-relaxed">
-            Each thick filament contains ~300 myosin molecules arranged in a bipolar fashion.
-            The myosin heads (motor domains) project outward in a spiral pattern and perform
-            the power stroke that generates force. The bare zone at the center has no heads.
+            Microtubules are hollow cylinders made of 13 protofilaments, each a chain of
+            α/β-tubulin dimers. Kinesin walks along a single protofilament, stepping from
+            one β-tubulin to the next. The 8nm step size matches exactly one tubulin dimer.
           </p>
         </section>
 
         <section>
-          <h3 class="text-lg font-semibold text-pink-300 mb-2">Actin (Thin Filaments)</h3>
+          <h3 class="text-lg font-semibold text-purple-300 mb-2">Hand-Over-Hand Walking</h3>
           <p class="text-sm leading-relaxed">
-            Thin filaments are double-helical polymers of actin monomers. They're decorated
-            with regulatory proteins: tropomyosin winds around the helix, and troponin
-            complexes control calcium-dependent binding of myosin heads.
+            Kinesin has two motor domain "heads" connected by flexible neck linkers to a
+            coiled-coil stalk. The heads alternate: one stays bound while the other swings
+            forward in an arc, landing 16nm ahead (net 8nm progress per head).
           </p>
         </section>
 
         <section>
-          <h3 class="text-lg font-semibold text-pink-300 mb-2">The Power Stroke Cycle</h3>
+          <h3 class="text-lg font-semibold text-purple-300 mb-2">The ATP Cycle</h3>
           <div class="grid grid-cols-2 gap-3 text-sm">
             <div class="bg-slate-800/50 rounded-lg p-3">
-              <div class="font-semibold text-pink-400">1. Attachment</div>
-              <p class="text-slate-400">Myosin head binds tightly to actin (rigor state)</p>
+              <div class="font-semibold text-amber-400">1. ATP Binding</div>
+              <p class="text-slate-400">Neck linker docks, swinging rear head forward</p>
             </div>
             <div class="bg-slate-800/50 rounded-lg p-3">
-              <div class="font-semibold text-cyan-400">2. Power Stroke</div>
-              <p class="text-slate-400">Head rotates ~70°, pulling actin ~5-10nm toward M-line</p>
+              <div class="font-semibold text-cyan-400">2. Hydrolysis</div>
+              <p class="text-slate-400">ATP → ADP + Pi while new head searches for binding site</p>
             </div>
             <div class="bg-slate-800/50 rounded-lg p-3">
-              <div class="font-semibold text-amber-400">3. Release</div>
-              <p class="text-slate-400">ATP binds, myosin detaches from actin</p>
+              <div class="font-semibold text-red-400">3. Pi Release</div>
+              <p class="text-slate-400">Front head binds, rear head releases from track</p>
             </div>
             <div class="bg-slate-800/50 rounded-lg p-3">
-              <div class="font-semibold text-purple-400">4. Recovery</div>
-              <p class="text-slate-400">ATP hydrolysis re-cocks the head for next cycle</p>
+              <div class="font-semibold text-purple-400">4. ADP Release</div>
+              <p class="text-slate-400">New binding allows ATP to enter, restarting cycle</p>
             </div>
           </div>
         </section>
 
         <section>
-          <h3 class="text-lg font-semibold text-pink-300 mb-2">Titin - The Molecular Spring</h3>
+          <h3 class="text-lg font-semibold text-purple-300 mb-2">Processivity</h3>
           <p class="text-sm leading-relaxed">
-            Titin is a giant protein (~3.5 MDa) spanning from Z-disc to M-line. It acts as
-            a molecular spring, providing passive tension and preventing over-stretching.
-            Its elastic PEVK region unfolds progressively under force.
+            Kinesin is highly processive - one motor can take ~100 steps before detaching.
+            This is crucial for long-distance transport. The "gating" mechanism ensures
+            one head is always bound, preventing the cargo from diffusing away.
           </p>
         </section>
 
         <section>
-          <h3 class="text-lg font-semibold text-pink-300 mb-2">Structural Landmarks</h3>
+          <h3 class="text-lg font-semibold text-purple-300 mb-2">Cellular Functions</h3>
           <div class="grid grid-cols-2 gap-3 text-sm">
             <div class="bg-slate-800/50 rounded-lg p-3">
-              <div class="font-semibold text-amber-400">Z-Disc</div>
-              <p class="text-slate-400">α-actinin lattice anchoring actin plus-ends and titin N-terminus</p>
+              <div class="font-semibold text-amber-400">Vesicle Transport</div>
+              <p class="text-slate-400">Moves secretory vesicles, endosomes, and lysosomes</p>
             </div>
             <div class="bg-slate-800/50 rounded-lg p-3">
-              <div class="font-semibold text-slate-300">M-Line</div>
-              <p class="text-slate-400">Myomesin crosslinks holding myosin and titin C-terminus</p>
+              <div class="font-semibold text-emerald-400">Mitosis</div>
+              <p class="text-slate-400">Moves chromosomes during cell division</p>
             </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 class="text-lg font-semibold text-purple-300 mb-2">Key Numbers</h3>
+          <div class="bg-slate-800/50 rounded-lg p-3 text-sm">
+            <ul class="space-y-1 text-slate-400">
+              <li>• Step size: 8 nm (one tubulin dimer)</li>
+              <li>• Speed: ~800 nm/s (100 steps/s)</li>
+              <li>• Force: ~6 pN (can carry organelles)</li>
+              <li>• Efficiency: ~50% (mechanical/chemical energy)</li>
+              <li>• Run length: ~1 μm before detaching</li>
+            </ul>
           </div>
         </section>
       </div>
     </div>
   </div>
 
-  <script type="module" src="/src/muscle.js"></script>
+  <script type="module" src="/src/kinesin.js"></script>
 </body>
 </html>

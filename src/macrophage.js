@@ -370,14 +370,15 @@ function createLysosomes() {
     const lysosome = new THREE.Mesh(geometry, lysoMaterial.clone());
 
     // Distribute throughout cytoplasm, avoiding nucleus
+    // Keep within radius 1.8 to stay safely inside amoeboid membrane
     let pos;
     do {
       pos = new THREE.Vector3(
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 4,
-        (Math.random() - 0.5) * 5
+        (Math.random() - 0.5) * 3.5,
+        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3.5
       );
-    } while (pos.distanceTo(new THREE.Vector3(1.2, 0.3, 0)) < 1.5 || pos.length() > 2.8);
+    } while (pos.distanceTo(new THREE.Vector3(1.0, 0.2, 0)) < 1.3 || pos.length() > 1.8);
 
     lysosome.position.copy(pos);
     lysosome.userData.originalPos = pos.clone();
@@ -436,15 +437,15 @@ function createPhagosomes() {
       phagoGroup.add(content);
     }
 
-    // Position phagosomes
+    // Position phagosomes - keep within radius 2.0 to stay inside membrane
     let pos;
     do {
       pos = new THREE.Vector3(
-        (Math.random() - 0.5) * 4,
-        (Math.random() - 0.5) * 3,
-        (Math.random() - 0.5) * 4
+        (Math.random() - 0.5) * 3.5,
+        (Math.random() - 0.5) * 2.5,
+        (Math.random() - 0.5) * 3.5
       );
-    } while (pos.distanceTo(new THREE.Vector3(1.2, 0.3, 0)) < 1.8 || pos.length() > 2.5);
+    } while (pos.distanceTo(new THREE.Vector3(1.0, 0.2, 0)) < 1.3 || pos.length() > 1.8);
 
     phagoGroup.position.copy(pos);
     phagoGroup.userData.originalPos = pos.clone();
@@ -475,11 +476,13 @@ function createMitochondria() {
   const mitoCount = 250;
 
   // Generate positions throughout cytoplasm, avoiding nucleus
+  // Cell body radius is 3, but amoeboid deformation can indent ~0.5-1.0
+  // Keep organelles within radius 2.0 to stay safely inside membrane
   const positions = generateSphericalMitochondriaPositions({
     count: mitoCount,
-    radiusX: 2.8,
-    radiusY: 2.4,
-    radiusZ: 2.8,
+    radiusX: 2.0,
+    radiusY: 1.8,
+    radiusZ: 2.0,
     minRadius: 0.6,
     excludeRegions: [{ center: nucleusPos, radius: 1.2 }]
   });
@@ -549,7 +552,7 @@ function createER() {
   const erGroup = createSimpleER({
     position: new THREE.Vector3(0, 0, 0),
     tubeCount: 20,
-    spreadRadius: 2.0,
+    spreadRadius: 1.6, // Keep inside membrane (cell radius 3, but amoeboid deformation can indent 0.5-1.0)
     tubeRadius: 0.04,
     organelleName: 'ER'
   });

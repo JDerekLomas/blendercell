@@ -227,3 +227,111 @@ export function createSimpleGolgi(options = {}) {
 
   return group;
 }
+
+/**
+ * Create a detailed Golgi apparatus with rounded disc cisternae and animated vesicle production
+ * Based on biological structure: curved, flattened membrane discs that produce vesicles
+ *
+ * @param {Object} options Configuration options
+ * @returns {THREE.Group} Group containing the detailed Golgi
+ */
+export function createDetailedGolgi(options = {}) {
+  const {
+    position = new THREE.Vector3(),
+    cisternaCount = 6,
+    scale = 1,
+    includeVesicles = true,
+    organelleName = 'Golgi'
+  } = options;
+
+  const group = new THREE.Group();
+  group.position.copy(position);
+  group.scale.setScalar(scale);
+  group.rotation.z = 0.2;
+
+  const stackSpacing = 0.2;
+
+  // Create curved, disc-shaped cisternae using torus geometry for rounded edges
+  for (let i = 0; i < cisternaCount; i++) {
+    const t = i / (cisternaCount - 1);
+
+    // Cisternae get progressively smaller and more curved toward trans face
+    const outerRadius = 1.0 * (1 - t * 0.25);
+    const thickness = 0.12;
+    const curvature = 0.15 + t * 0.3; // More curved toward trans
+
+    // Create a curved disc using torus (donut) with very small inner radius
+    // This gives the rounded disc shape
+    const torusGeom = new THREE.TorusGeometry(outerRadius, thickness, 12, 32, Math.PI * 1.6);
+
+    let matType;
+    if (i < cisternaCount * 0.25) matType = 'cis';
+    else if (i < cisternaCount * 0.75) matType = 'medial';
+    else matType = 'trans';
+
+    const material = createGolgiMaterial(matType);
+    const cisterna = new THREE.Mesh(torusGeom, material);
+
+    // Position in stack
+    cisterna.position.y = (i - cisternaCount / 2) * stackSpacing;
+    cisterna.position.x = t * 0.1; // Slight offset
+    cisterna.rotation.x = Math.PI / 2; // Lay flat
+    cisterna.rotation.z = curvature; // Apply curvature
+
+    cisterna.userData = { organelle: organelleName };
+    group.add(cisterna);
+  }
+
+  // Add budding vesicles
+  if (includeVesicles) {
+    // Cis-side vesicles (arriving from ER) - greenish
+    for (let i = 0; i < 6; i++) {
+      const vesicle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06 + Math.random() * 0.03, 12, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0xAADD88,
+          emissive: 0xAADD88,
+          emissiveIntensity: 0.3,
+          transparent: true,
+          opacity: 0.85
+        })
+      );
+      const angle = (i / 6) * Math.PI - Math.PI / 2;
+      vesicle.position.set(
+        -0.3 + Math.random() * 0.2,
+        -cisternaCount * stackSpacing / 2 - 0.15,
+        Math.sin(angle) * 0.8
+      );
+      vesicle.userData = {
+        isVesicle: true,
+        phase: Math.random() * Math.PI * 2,
+        type: 'arriving'
+      };
+      group.add(vesicle);
+    }
+
+    // Trans-side vesicles (departing - being produced)
+    for (let i = 0; i < 10; i++) {
+      const vesicle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05 + Math.random() * 0.04, 12, 12),
+        createVesicleMaterial()
+      );
+      const angle = (i / 10) * Math.PI - Math.PI / 2;
+      const burstRadius = 0.3 + Math.random() * 0.4;
+      vesicle.position.set(
+        0.3 + Math.random() * 0.3,
+        cisternaCount * stackSpacing / 2 + 0.2 + Math.random() * 0.3,
+        Math.sin(angle) * 0.9
+      );
+      vesicle.userData = {
+        isVesicle: true,
+        phase: Math.random() * Math.PI * 2,
+        type: 'departing',
+        baseY: vesicle.position.y
+      };
+      group.add(vesicle);
+    }
+  }
+
+  return group;
+}

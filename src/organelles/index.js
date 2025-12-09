@@ -58,7 +58,8 @@ export {
 // Golgi
 export {
   createGolgi,
-  createSimpleGolgi
+  createSimpleGolgi,
+  createDetailedGolgi
 } from './golgi.js';
 
 // Lysosomes
@@ -74,6 +75,7 @@ export {
   createRER,
   createSimpleER,
   createPlasmaRER,
+  createDetailedER,
   createInstancedRibosomes
 } from './er.js';
 

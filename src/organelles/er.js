@@ -314,3 +314,228 @@ export function createPlasmaRER(options = {}) {
 
   return group;
 }
+
+/**
+ * Create highly convoluted membrane sheet with dramatic folds
+ * This creates a wavy, organic-looking membrane surface
+ */
+function createConvolutedSheet(width, depth, foldIntensity = 1.0, segments = 40) {
+  const geometry = new THREE.PlaneGeometry(width, depth, segments, segments);
+  const positions = geometry.attributes.position;
+
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i);
+    const z = positions.getY(i); // PlaneGeometry uses Y for the second dimension
+
+    // Multiple overlapping wave frequencies for organic look
+    const wave1 = Math.sin(x * 4) * 0.15 * foldIntensity;
+    const wave2 = Math.sin(z * 3) * 0.12 * foldIntensity;
+    const wave3 = Math.cos((x + z) * 2.5) * 0.1 * foldIntensity;
+    const wave4 = Math.sin(x * 8 + z * 6) * 0.05 * foldIntensity; // High-frequency ripples
+    const wave5 = Math.cos(x * 1.5) * Math.sin(z * 2) * 0.08 * foldIntensity; // Cross-wave
+
+    const y = wave1 + wave2 + wave3 + wave4 + wave5;
+    positions.setZ(i, y);
+  }
+
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
+ * Create curved cisterna (bent sheet wrapping around)
+ */
+function createCurvedCisternaSheet(radius, arcAngle, height, foldIntensity = 1.0, segments = 40) {
+  const geometry = new THREE.PlaneGeometry(radius * arcAngle, height, segments, Math.floor(segments / 2));
+  const positions = geometry.attributes.position;
+
+  for (let i = 0; i < positions.count; i++) {
+    let u = positions.getX(i); // Along the arc
+    let v = positions.getY(i); // Height
+
+    // Convert to curved surface (cylindrical mapping)
+    const angle = (u / radius);
+    const baseX = Math.cos(angle) * radius;
+    const baseZ = Math.sin(angle) * radius;
+
+    // Add undulations along the curve
+    const wave1 = Math.sin(angle * 6) * 0.1 * foldIntensity;
+    const wave2 = Math.sin(v * 4 + angle * 3) * 0.08 * foldIntensity;
+    const wave3 = Math.cos(angle * 10) * 0.04 * foldIntensity;
+
+    const radialOffset = wave1 + wave2 + wave3;
+    const newX = Math.cos(angle) * (radius + radialOffset);
+    const newZ = Math.sin(angle) * (radius + radialOffset);
+
+    positions.setXYZ(i, newX, v, newZ);
+  }
+
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
+ * Create detailed sheet-based ER with dramatic folds and convolutions
+ * With undulating membrane sheets, curved cisternae, and instanced ribosomes
+ *
+ * @param {Object} options Configuration options
+ * @returns {THREE.Group} Group containing the detailed ER
+ */
+export function createDetailedER(options = {}) {
+  const {
+    position = new THREE.Vector3(),
+    sheetCount = 12,
+    spreadRadius = 2.0,
+    includeRibosomes = true,
+    ribosomeCount = 400,
+    organelleName = 'RER'
+  } = options;
+
+  const group = new THREE.Group();
+  group.position.copy(position);
+
+  const rerMaterial = createRERMaterial({ opacity: 0.30 });
+  const sheets = [];
+
+  // Create more stacked horizontal cisternae with dramatic folds
+  const stackCount = Math.floor(sheetCount * 0.5);
+  const stackSpacing = 0.28;
+  const baseY = -stackCount * stackSpacing / 2;
+
+  for (let s = 0; s < stackCount; s++) {
+    const y = baseY + s * stackSpacing;
+
+    // Vary size based on position (larger in middle)
+    const sizeFactor = 1 - Math.abs(s - stackCount / 2) / (stackCount / 2) * 0.25;
+    const width = spreadRadius * 2.0 * sizeFactor;
+    const depth = spreadRadius * 1.8 * sizeFactor;
+    const foldIntensity = 0.8 + Math.random() * 0.5;
+
+    const sheet = new THREE.Mesh(
+      createConvolutedSheet(width, depth, foldIntensity, 45),
+      rerMaterial.clone()
+    );
+
+    sheet.position.set(
+      (Math.random() - 0.5) * 0.4,
+      y,
+      (Math.random() - 0.5) * 0.4
+    );
+    sheet.rotation.x = -Math.PI / 2; // Lay flat
+    sheet.rotation.z = (Math.random() - 0.5) * 0.15;
+
+    sheet.userData = { organelle: organelleName };
+    group.add(sheet);
+    sheets.push(sheet);
+  }
+
+  // Add curved cisternae wrapping around (like real ER)
+  const curvedCount = Math.floor(sheetCount * 0.3);
+  for (let c = 0; c < curvedCount; c++) {
+    const angle = (c / curvedCount) * Math.PI * 2;
+    const radius = spreadRadius * 0.8 + Math.random() * 0.4;
+    const height = spreadRadius * 0.8 + Math.random() * 0.6;
+
+    const curved = new THREE.Mesh(
+      createCurvedCisternaSheet(radius, Math.PI * (0.6 + Math.random() * 0.4), height, 1.0 + Math.random() * 0.3),
+      rerMaterial.clone()
+    );
+
+    curved.position.set(
+      Math.cos(angle) * spreadRadius * 0.3,
+      (Math.random() - 0.5) * spreadRadius * 0.8,
+      Math.sin(angle) * spreadRadius * 0.3
+    );
+    curved.rotation.y = angle + Math.PI / 2;
+
+    curved.userData = { organelle: organelleName };
+    group.add(curved);
+    sheets.push(curved);
+  }
+
+  // Add vertical sheets for more 3D interconnected structure
+  const verticalCount = sheetCount - stackCount - curvedCount;
+  for (let v = 0; v < verticalCount; v++) {
+    const angle = (v / verticalCount) * Math.PI * 2;
+    const radius = spreadRadius * 0.5 + Math.random() * spreadRadius * 0.5;
+
+    const vertSheet = new THREE.Mesh(
+      createConvolutedSheet(spreadRadius * 0.7, spreadRadius * 1.0, 0.8 + Math.random() * 0.4, 35),
+      rerMaterial.clone()
+    );
+
+    vertSheet.position.set(
+      Math.cos(angle) * radius * 0.4,
+      (Math.random() - 0.5) * spreadRadius * 0.7,
+      Math.sin(angle) * radius * 0.4
+    );
+    vertSheet.rotation.y = angle + Math.random() * 0.4;
+    vertSheet.rotation.x = (Math.random() - 0.5) * 0.4;
+    vertSheet.rotation.z = (Math.random() - 0.5) * 0.2;
+
+    vertSheet.userData = { organelle: organelleName };
+    group.add(vertSheet);
+    sheets.push(vertSheet);
+  }
+
+  // Add connecting tubules between sheets
+  const tubuleMat = new THREE.MeshStandardMaterial({
+    color: 0x55ddcc,
+    roughness: 0.3,
+    transparent: true,
+    opacity: 0.4,
+    emissive: 0x224444,
+    emissiveIntensity: 0.1
+  });
+
+  for (let t = 0; t < 8; t++) {
+    const startY = (Math.random() - 0.5) * spreadRadius;
+    const endY = (Math.random() - 0.5) * spreadRadius;
+    const startAngle = Math.random() * Math.PI * 2;
+    const endAngle = startAngle + (Math.random() - 0.5) * Math.PI;
+
+    const points = [
+      new THREE.Vector3(Math.cos(startAngle) * spreadRadius * 0.4, startY, Math.sin(startAngle) * spreadRadius * 0.4),
+      new THREE.Vector3(Math.cos((startAngle + endAngle) / 2) * spreadRadius * 0.2, (startY + endY) / 2 + (Math.random() - 0.5) * 0.3, Math.sin((startAngle + endAngle) / 2) * spreadRadius * 0.2),
+      new THREE.Vector3(Math.cos(endAngle) * spreadRadius * 0.4, endY, Math.sin(endAngle) * spreadRadius * 0.4)
+    ];
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tubeGeom = new THREE.TubeGeometry(curve, 12, 0.03, 6, false);
+    const tubule = new THREE.Mesh(tubeGeom, tubuleMat);
+    tubule.userData = { organelle: organelleName };
+    group.add(tubule);
+  }
+
+  // Add instanced ribosomes studded on the ER surface
+  if (includeRibosomes && sheets.length > 0) {
+    const ribosomePositions = [];
+
+    // Distribute ribosomes on sheet surfaces
+    sheets.forEach((sheet) => {
+      sheet.updateMatrixWorld();
+      const sheetMatrix = sheet.matrixWorld;
+      const positions = sheet.geometry.attributes.position;
+      const ribosPerSheet = Math.floor(ribosomeCount / sheets.length);
+
+      for (let r = 0; r < ribosPerSheet; r++) {
+        const vertIdx = Math.floor(Math.random() * positions.count);
+        const localPos = new THREE.Vector3(
+          positions.getX(vertIdx),
+          positions.getY(vertIdx),
+          positions.getZ(vertIdx) + 0.025 // Slightly above surface
+        );
+
+        // Transform to world space
+        const worldPos = localPos.clone().applyMatrix4(sheetMatrix);
+        ribosomePositions.push(worldPos);
+      }
+    });
+
+    const ribosomes = createInstancedRibosomes(ribosomePositions, { radius: 0.02 });
+    ribosomes.userData = { organelle: 'Ribosomes' };
+    group.add(ribosomes);
+  }
+
+  return group;
+}
