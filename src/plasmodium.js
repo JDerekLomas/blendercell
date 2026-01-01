@@ -34,6 +34,82 @@ let segmentFlows = []; // Flow rate through each segment (biologically plausible
 let sharedTubeGeometry = null; // Single tube geometry, reused for all segments
 
 // ============================================
+// PROCEDURAL FORM PARAMETERS
+// ============================================
+
+const physarumParams = {
+  // L-SYSTEM CORE
+  lsystem: {
+    iterations: 8,
+    baseAngle: 22,
+    angleVariation: 3,
+    rule: 'F[+A][-A]FA',
+    branchProbability: 0.95,
+    asymmetryFactor: 0.15,
+    depthBias: 0.05,
+  },
+
+  // SPATIAL DISTRIBUTION
+  spatial: {
+    planarBias: 0.3,        // 0=3D, 1=2D
+    spiralTwist: 0.05,
+    gravitationalDrift: 0.0,
+    curvatureFactor: 0.02,
+    curvatureNoise: 0.015,
+  },
+
+  // ANASTOMOSIS (network loops)
+  anastomosis: {
+    enabled: true,
+    distance: 3.5,
+    threshold: 0.7,
+    reinforcementFactor: 1.5,
+  },
+
+  // ATTRACTORS (nutrient sources)
+  attractors: [
+    { position: [6, 2, 6], strength: 2.0, radius: 8 },
+    { position: [-6, 2, -6], strength: 2.0, radius: 8 },
+  ],
+  attractorInfluence: 0.3,
+
+  // RADIUS & MURRAY'S LAW
+  radius: {
+    murrayExponent: 3,
+    murrayRatio: Math.pow(2, -1/3),
+    baseRadius: 0.02,
+    radiusScale: 1.0,
+    radiusNoise: 0.01,
+    depthTaperFactor: 0.95,
+  },
+
+  // GROWTH DYNAMICS
+  growth: {
+    speed: 0.15,
+    cascadeDelay: 0.08,
+    sizeMultiplierMax: 6.0,
+    sizeMultiplierTanh: 0.3,
+    maxSegments: 1000,
+  },
+
+  // PULSING & FLOW
+  pulse: {
+    frequency: 2.5,
+    amplitude: 0.2,
+    propulsionAmount: 0.08,
+    phaseStagger: 0.05,
+  },
+
+  // VISUAL
+  visual: {
+    baseColor: 0xffeb3b,
+    flowHighColor: 0xffd700,
+    baseOpacity: 0.95,
+    cylinderSegments: 16,
+  },
+};
+
+// ============================================
 // INITIALIZATION
 // ============================================
 
@@ -73,11 +149,117 @@ function init() {
   // Event listeners
   setupEventListeners();
 
+  // Create GUI for procedural parameter control
+  setupGUI();
+
   // Update stats
   updateStats();
 
   // Start animation
   animate();
+}
+
+// ============================================
+// GUI SETUP FOR PROCEDURAL FORM CONTROL
+// ============================================
+
+function setupGUI() {
+  // Only setup if dat.GUI is available
+  if (typeof dat === 'undefined') return;
+
+  const gui = new dat.GUI({ width: 350, name: 'Physarum Parameters' });
+
+  // L-System folder
+  const lsysFolder = gui.addFolder('L-System');
+  lsysFolder.add(physarumParams.lsystem, 'iterations', 5, 12, 1).onChange(() => regenerate());
+  lsysFolder.add(physarumParams.lsystem, 'baseAngle', 10, 45, 1).onChange(() => regenerate());
+  lsysFolder.add(physarumParams.lsystem, 'angleVariation', 0, 10, 0.5).onChange(() => regenerate());
+  lsysFolder.add(physarumParams.lsystem, 'branchProbability', 0.5, 1.0, 0.05).onChange(() => regenerate());
+  lsysFolder.add(physarumParams.lsystem, 'asymmetryFactor', 0, 0.5, 0.05).onChange(() => regenerate());
+  lsysFolder.open();
+
+  // Spatial folder
+  const spatialFolder = gui.addFolder('Spatial');
+  spatialFolder.add(physarumParams.spatial, 'planarBias', 0, 1, 0.1).onChange(() => regenerate());
+  spatialFolder.add(physarumParams.spatial, 'spiralTwist', 0, 0.2, 0.01).onChange(() => regenerate());
+  spatialFolder.add(physarumParams.spatial, 'gravitationalDrift', -0.5, 0.5, 0.05).onChange(() => regenerate());
+  spatialFolder.add(physarumParams.spatial, 'curvatureFactor', 0, 0.1, 0.01).onChange(() => regenerate());
+
+  // Anastomosis folder
+  const anaFolder = gui.addFolder('Anastomosis');
+  anaFolder.add(physarumParams.anastomosis, 'enabled').onChange(() => regenerate());
+  anaFolder.add(physarumParams.anastomosis, 'distance', 1, 8, 0.5).onChange(() => regenerate());
+  anaFolder.add(physarumParams.anastomosis, 'threshold', 0, 1, 0.1).onChange(() => regenerate());
+  anaFolder.add(physarumParams.anastomosis, 'reinforcementFactor', 1, 3, 0.1).onChange(() => regenerate());
+
+  // Attractors folder
+  const attrFolder = gui.addFolder('Attractors');
+  attrFolder.add(physarumParams, 'attractorInfluence', 0, 1, 0.1).onChange(() => regenerate());
+
+  // Add attractor controls
+  physarumParams.attractors.forEach((attr, idx) => {
+    const subFolder = attrFolder.addFolder(`Attractor ${idx + 1}`);
+    subFolder.add(attr, 'strength', 0, 5, 0.5).onChange(() => regenerate());
+    subFolder.add(attr, 'radius', 1, 15, 1).onChange(() => regenerate());
+  });
+
+  // Radius folder
+  const radiusFolder = gui.addFolder('Radius & Growth');
+  radiusFolder.add(physarumParams.radius, 'baseRadius', 0.01, 0.1, 0.01).onChange(() => regenerate());
+  radiusFolder.add(physarumParams.radius, 'radiusScale', 0.5, 2, 0.1).onChange(() => regenerate());
+  radiusFolder.add(physarumParams.radius, 'depthTaperFactor', 0.8, 1.0, 0.02).onChange(() => regenerate());
+  radiusFolder.add(physarumParams.growth, 'sizeMultiplierMax', 2, 10, 0.5);
+  radiusFolder.add(physarumParams.growth, 'sizeMultiplierTanh', 0.1, 1.0, 0.1);
+
+  // Pulse folder
+  const pulseFolder = gui.addFolder('Pulsing');
+  pulseFolder.add(physarumParams.pulse, 'frequency', 0.5, 10, 0.5);
+  pulseFolder.add(physarumParams.pulse, 'amplitude', 0, 0.5, 0.05);
+  pulseFolder.add(physarumParams.pulse, 'propulsionAmount', 0, 0.2, 0.01);
+
+  // Presets
+  const presets = {
+    'Dense Mycelium': () => {
+      physarumParams.lsystem.iterations = 10;
+      physarumParams.lsystem.baseAngle = 15;
+      physarumParams.spatial.planarBias = 0.5;
+      physarumParams.anastomosis.distance = 2.5;
+      regenerate();
+    },
+    'Sparse Explorer': () => {
+      physarumParams.lsystem.iterations = 6;
+      physarumParams.lsystem.baseAngle = 35;
+      physarumParams.spatial.planarBias = 0.2;
+      physarumParams.spatial.spiralTwist = 0.1;
+      regenerate();
+    },
+    'Balanced Growth': () => {
+      physarumParams.lsystem.iterations = 8;
+      physarumParams.lsystem.baseAngle = 22;
+      physarumParams.spatial.planarBias = 0.3;
+      physarumParams.anastomosis.distance = 3.5;
+      regenerate();
+    },
+  };
+
+  const presetsFolder = gui.addFolder('Presets');
+  Object.keys(presets).forEach(name => {
+    presetsFolder.add(presets, name);
+  });
+
+  gui.close();
+}
+
+function regenerate() {
+  // Clear scene
+  plasmodiumGroup.clear();
+  growthSegments = [];
+  segmentGrowthProgress = [];
+  basePositions = [];
+  veinMeshes = [];
+
+  // Regenerate network
+  createGrowingSlimeNetwork();
 }
 
 // ============================================
@@ -265,9 +447,9 @@ function createGrowingSlimeNetwork() {
   // Create shared cylinder geometry (unit cylinder, will be scaled by shaders)
   sharedTubeGeometry = new THREE.CylinderGeometry(1.0, 1.0, 1.0, 16, 1);
 
-  // Generate L-system branching tree (starting small, growing large)
-  // 8 iterations for 4x more branches (400% increase), 22° for finer filament-like structure
-  const branchNetwork = generateBranchingNetwork(8, 22);
+  // Generate L-system branching tree using procedural parameters
+  // Uses physarumParams for all configuration
+  const branchNetwork = generateBranchingNetwork();
 
   // Convert all branch segments into growth-animated tentacle tubes
   branchNetwork.forEach((branchSegments, branchIndex) => {
@@ -346,6 +528,71 @@ function createGrowingSlimeNetwork() {
 
   // Initialize flows
   calculateSegmentFlows();
+}
+
+// ============================================
+// PROCEDURAL FORM UTILITIES
+// ============================================
+
+// Seeded random number for reproducible generation
+function seededRandom(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+// Get attractor influence on angle
+function getAttractorInfluence(x, y, attractors, influenceStrength) {
+  let angleAdjustment = 0;
+  let totalInfluence = 0;
+
+  attractors.forEach(attractor => {
+    const dx = attractor.position[0] - x;
+    const dy = attractor.position[1] - y;
+    const distance = Math.sqrt(dx*dx + dy*dy);
+
+    if (distance < attractor.radius) {
+      const influence = (1 - distance / attractor.radius) * attractor.strength;
+      const targetAngle = Math.atan2(dy, dx);
+      angleAdjustment += targetAngle * influence;
+      totalInfluence += influence;
+    }
+  });
+
+  return totalInfluence > 0 ? angleAdjustment / totalInfluence * influenceStrength : 0;
+}
+
+// Find nearby segments for anastomosis
+function findNearbySegments(x, y, z, allSegments, maxDistance) {
+  const nearby = [];
+
+  allSegments.forEach(segment => {
+    // Distance to segment midpoint
+    const mx = (segment.x1 + segment.x2) / 2;
+    const my = (segment.y1 + segment.y2) / 2;
+    const mz = (segment.z1 + segment.z2) / 2;
+
+    const dx = mx - x;
+    const dy = my - y;
+    const dz = mz - z;
+    const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+    if (distance < maxDistance && distance > 0.1) {
+      nearby.push({ segment, distance });
+    }
+  });
+
+  return nearby.sort((a, b) => a.distance - b.distance);
+}
+
+// Create connection between two veins (anastomosis)
+function createAnastomosis(seg1, seg2, reinforcementFactor) {
+  // Thicken both segments due to connection
+  if (seg1.radius) seg1.radius *= reinforcementFactor;
+  if (seg2.radius) seg2.radius *= reinforcementFactor;
+
+  // Mark as connected for flow calculation
+  seg1.connected = true;
+  seg2.connected = true;
 }
 
 // ============================================
@@ -482,10 +729,19 @@ function createNuclei() {
 
 // ============================================
 // BRANCHING NETWORK GENERATION (L-System based)
+// Procedural form with randomization, attractors, and anastomosis
 // ============================================
-function generateBranchingNetwork(iterations = 4, angle = 25) {
-  // L-System: A → F[+A][-A]F A
-  // Generates self-similar fractal branching with optimal diameter ratios
+function generateBranchingNetwork(iterations = physarumParams.lsystem.iterations, angle = physarumParams.lsystem.baseAngle) {
+  // Use parameters from physarumParams for full procedural control
+  const params = physarumParams;
+  const angleVariation = params.lsystem.angleVariation;
+  const branchProb = params.lsystem.branchProbability;
+  const asymmetry = params.lsystem.asymmetryFactor;
+  const attractors = params.attractors;
+  const attractorInfluence = params.attractorInfluence;
+  const planarBias = params.spatial.planarBias;
+  const spiralTwist = params.spatial.spiralTwist;
+  const gravitationalDrift = params.spatial.gravitationalDrift;
 
   const branches = [];
   let turtle = {
@@ -493,20 +749,28 @@ function generateBranchingNetwork(iterations = 4, angle = 25) {
     y: 0,
     z: 0,
     angle: 90,
+    depth: 0,
     stack: []
   };
 
+  let allSegments = []; // Track for anastomosis
+  let segmentCounter = 0;
+
   function processLSystem(axiom, iterations) {
-    let string = 'A';
+    let string = axiom;
     const rules = {
-      'A': 'F[+A][-A]FA'
+      'A': params.lsystem.rule
     };
 
-    // Expand L-system string
+    // Expand L-system with stochastic branching
     for (let iter = 0; iter < iterations; iter++) {
       let newString = '';
       for (let char of string) {
-        newString += rules[char] || char;
+        if (char === 'A' && Math.random() > branchProb) {
+          newString += 'F'; // Skip branch probabilistically
+        } else {
+          newString += rules[char] || char;
+        }
       }
       string = newString;
     }
@@ -516,41 +780,85 @@ function generateBranchingNetwork(iterations = 4, angle = 25) {
 
   function executeString(str) {
     const branchSegments = [];
-    const angleRad = angle * Math.PI / 180;
+    let baseAngleRad = angle * Math.PI / 180;
     let currentBranch = [];
 
-    for (let char of str) {
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+
       if (char === 'F') {
-        const segmentLength = 0.5 / Math.pow(2, 0.5); // Scaling for iterations
-        const nextX = turtle.x + segmentLength * Math.cos(turtle.angle);
-        const nextY = turtle.y + segmentLength * Math.sin(turtle.angle);
+        const segmentLength = 0.5 / Math.pow(2, 0.5);
 
-        currentBranch.push({
+        // Add randomization
+        const angleVariationAmount = (Math.random() - 0.5) * (angleVariation * Math.PI / 180);
+        const currentAngle = turtle.angle + angleVariationAmount;
+
+        // Attractor influence
+        const attractorAngle = getAttractorInfluence(turtle.x, turtle.y, attractors, attractorInfluence);
+        const finalAngle = currentAngle + attractorAngle;
+
+        // Next position
+        let nextX = turtle.x + segmentLength * Math.cos(finalAngle);
+        let nextY = turtle.y + segmentLength * Math.sin(finalAngle);
+        let nextZ = turtle.z;
+
+        // Planar bias
+        nextZ *= (1 - planarBias);
+
+        // Spiral twist
+        if (turtle.depth > 0) {
+          const twistAngle = turtle.depth * spiralTwist;
+          const rotX = nextX * Math.cos(twistAngle) - nextZ * Math.sin(twistAngle);
+          const rotZ = nextX * Math.sin(twistAngle) + nextZ * Math.cos(twistAngle);
+          nextX = rotX;
+          nextZ = rotZ;
+        }
+
+        // Gravitational drift
+        nextZ += gravitationalDrift * segmentLength;
+
+        const segment = {
           x1: turtle.x, y1: turtle.y, z1: turtle.z,
-          x2: nextX, y2: nextY, z2: turtle.z,
-          order: 0 // Will be set based on depth
-        });
+          x2: nextX, y2: nextY, z2: nextZ,
+          order: 0,
+          depth: turtle.depth,
+          id: segmentCounter++
+        };
 
+        currentBranch.push(segment);
+        allSegments.push(segment);
         turtle.x = nextX;
         turtle.y = nextY;
+        turtle.z = nextZ;
 
       } else if (char === '+') {
-        turtle.angle -= angleRad;
+        const asymmetryAmount = (Math.random() - 0.5) * asymmetry;
+        turtle.angle -= baseAngleRad * (1 + asymmetryAmount);
+
       } else if (char === '-') {
-        turtle.angle += angleRad;
+        const asymmetryAmount = (Math.random() - 0.5) * asymmetry;
+        turtle.angle += baseAngleRad * (1 + asymmetryAmount);
+
       } else if (char === '[') {
-        turtle.stack.push({x: turtle.x, y: turtle.y, z: turtle.z, angle: turtle.angle});
+        turtle.stack.push({
+          x: turtle.x, y: turtle.y, z: turtle.z,
+          angle: turtle.angle, depth: turtle.depth
+        });
+        turtle.depth++;
+
       } else if (char === ']') {
         if (currentBranch.length > 0) {
           branchSegments.push(currentBranch);
           currentBranch = [];
         }
+        turtle.depth--;
         const saved = turtle.stack.pop();
         if (saved) {
           turtle.x = saved.x;
           turtle.y = saved.y;
           turtle.z = saved.z;
           turtle.angle = saved.angle;
+          turtle.depth = saved.depth;
         }
       }
     }
@@ -563,7 +871,21 @@ function generateBranchingNetwork(iterations = 4, angle = 25) {
   }
 
   const lSystemString = processLSystem('A', iterations);
-  return executeString(lSystemString);
+  const branchNetwork = executeString(lSystemString);
+
+  // POST-PROCESSING: Anastomosis
+  if (params.anastomosis.enabled) {
+    allSegments.forEach(segment => {
+      const nearby = findNearbySegments(segment.x2, segment.y2, segment.z2, allSegments, params.anastomosis.distance);
+      nearby.slice(0, 2).forEach(({ segment: nearSegment }) => {
+        if (segment.id !== nearSegment.id && Math.random() < params.anastomosis.threshold) {
+          createAnastomosis(segment, nearSegment, params.anastomosis.reinforcementFactor);
+        }
+      });
+    });
+  }
+
+  return branchNetwork;
 }
 
 function createMitochondria() {
