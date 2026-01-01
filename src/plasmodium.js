@@ -15,14 +15,9 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 // ============================================
 
 let scene, camera, renderer, controls;
-let plasmodiumGroup, cellMembrane, nucleiGroup, mitochondriaGroup, plasmaGroup;
-let protoplasticStreamParticles;
+let plasmodiumGroup;
 let clock = new THREE.Clock();
 let isExploring = false;
-
-// Toggle states
-let showNuclei = true;
-let showStreaming = true;
 
 // Protoplasmic streaming state - shuttle streaming simulation
 let globalStreamingPhase = 0;
@@ -67,9 +62,6 @@ function init() {
 
   // Create the plasmodium with accurate anatomy
   createPlasmodium();
-
-  // Create protoplasmic streaming visualization
-  createProtoplasticStream();
 
   // Event listeners
   setupEventListeners();
