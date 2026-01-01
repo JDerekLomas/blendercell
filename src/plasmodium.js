@@ -119,81 +119,96 @@ function setupLighting() {
 function createPlasmodium() {
   plasmodiumGroup = new THREE.Group();
 
-  // Create visible L-system branching network as the main visual
-  // No cell membrane - just the branching tree structure
-  createBranchingVeinNetwork();
-
-  // Add internal structures positioned along the branches
-  createNuclei();
-  createMitochondria();
-  createCytoplasmaticNetwork();
+  // Create only the growing, pulsing yellow slime network
+  // No nuclei dots, no mitochondria dots, no other structures
+  createGrowingSlimeNetwork();
 
   scene.add(plasmodiumGroup);
 }
 
 // ============================================
-// VISIBLE BRANCHING VEIN NETWORK
-// L-system based tube geometry for tree-like appearance
+// GROWING SLIME NETWORK
+// Pure yellow L-system branching structure with pulsing growth animation
 // ============================================
 
-function createBranchingVeinNetwork() {
-  const veinGroup = new THREE.Group();
+let growthSegments = []; // Track all segments for growth animation
+let segmentGrowthProgress = []; // Growth progress per segment (0-1)
+
+function createGrowingSlimeNetwork() {
   const branchNetwork = generateBranchingNetwork(5, 30);
 
-  // Yellow/gold material for veins
-  const veinMaterial = new THREE.MeshPhysicalMaterial({
+  // Yellow/gold material for slime veins
+  const slimeMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xffeb3b,
-    emissive: 0xffa500,
-    emissiveIntensity: 0.6,
-    roughness: 0.2,
-    metalness: 0.3,
+    emissive: 0xffeb3b,
+    emissiveIntensity: 0.8,
+    roughness: 0.15,
+    metalness: 0.4,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.95,
+    flatShading: false,
   });
 
-  // Create tubes for each branch segment
+  // Convert all branch segments into growth-animated tubes
   branchNetwork.forEach((branchSegments, branchIndex) => {
     branchSegments.forEach((segment, segmentIndex) => {
       const branchOrder = Math.floor(Math.log2(branchIndex + 1));
-      const murrayRatio = Math.pow(2, -1/3); // ≈ 0.794
+      const murrayRatio = Math.pow(2, -1/3); // ≈ 0.794 (Murray's Law)
       const diameterRatio = Math.pow(murrayRatio, branchOrder);
 
-      // Diameter decreases with branch order (following Murray's Law)
-      const baseRadius = 0.3;
+      // Base radius follows Murray's Law - thinner branches
+      const baseRadius = 0.4;
       const tubeRadius = baseRadius * diameterRatio;
 
-      // Create cylinder from segment start to end
-      const dx = segment.x2 - segment.x1;
-      const dy = segment.y2 - segment.y1;
-      const dz = segment.z2 - segment.z1;
-      const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      // Store segment data for growth animation
+      growthSegments.push({
+        segment: segment,
+        radius: tubeRadius,
+        material: slimeMaterial.clone(),
+        mesh: null,
+        branchOrder: branchOrder,
+      });
 
-      const tubeGeometry = new THREE.CylinderGeometry(tubeRadius, tubeRadius, length, 8, 1);
-      const tube = new THREE.Mesh(tubeGeometry, veinMaterial.clone());
-
-      // Position tube at segment midpoint
-      tube.position.set(
-        (segment.x1 + segment.x2) / 2,
-        (segment.y1 + segment.y2) / 2,
-        (segment.z1 + segment.z2) / 2
-      );
-
-      // Rotate to align with segment direction
-      const direction = new THREE.Vector3(dx, dy, dz).normalize();
-      const upVector = new THREE.Vector3(0, 1, 0);
-      const axis = new THREE.Vector3().crossVectors(upVector, direction).normalize();
-      const angle = Math.acos(upVector.dot(direction));
-
-      if (axis.length() > 0) {
-        tube.quaternion.setFromAxisAngle(axis, angle);
-      }
-
-      veinGroup.add(tube);
-      veinMeshes.push(tube);
+      segmentGrowthProgress.push(0); // All segments start at 0% grown
     });
   });
 
-  plasmodiumGroup.add(veinGroup);
+  // Create initial tube meshes (they'll grow via animation)
+  growthSegments.forEach((segData, idx) => {
+    const segment = segData.segment;
+    const dx = segment.x2 - segment.x1;
+    const dy = segment.y2 - segment.y1;
+    const dz = segment.z2 - segment.z1;
+    const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+    // Create cylinder that will grow
+    const tubeGeometry = new THREE.CylinderGeometry(segData.radius, segData.radius, length, 8, 1);
+    const tube = new THREE.Mesh(tubeGeometry, segData.material);
+
+    // Position at segment midpoint
+    tube.position.set(
+      (segment.x1 + segment.x2) / 2,
+      (segment.y1 + segment.y2) / 2,
+      (segment.z1 + segment.z2) / 2
+    );
+
+    // Rotate to align with segment direction
+    const direction = new THREE.Vector3(dx, dy, dz).normalize();
+    const upVector = new THREE.Vector3(0, 1, 0);
+    const axis = new THREE.Vector3().crossVectors(upVector, direction).normalize();
+    const angle = Math.acos(upVector.dot(direction));
+
+    if (axis.length() > 0.001) {
+      tube.quaternion.setFromAxisAngle(axis, angle);
+    }
+
+    // Store reference
+    segData.mesh = tube;
+    growthSegments[idx] = segData;
+
+    plasmodiumGroup.add(tube);
+    veinMeshes.push(tube);
+  });
 }
 
 // ============================================
@@ -723,148 +738,66 @@ function animate() {
 
   const time = clock.getElapsedTime();
 
-  // Animate nuclei - oscillate slightly
-  if (nucleiGroup && showNuclei) {
-    nucleiGroup.children.forEach((nucleus) => {
-      const basePos = nucleus.userData.basePosition;
-      const oscillation = Math.sin(
-        time * nucleus.userData.oscillationSpeed + nucleus.userData.oscillationPhase
-      ) * 0.15;
+  // Animate growing slime network
+  // Segments grow outward from center in a cascading manner
+  if (growthSegments && growthSegments.length > 0) {
+    const growthSpeed = 0.15; // How fast segments grow (0-1 progress per second)
+    const pulseSpeed = 3.0; // Pulsing frequency of the slime
+    const cascadeDelay = 0.3; // Delay between when segments start growing
 
-      nucleus.position.x = basePos.x + oscillation * Math.cos(time);
-      nucleus.position.y = basePos.y + oscillation * Math.sin(time);
-      nucleus.position.z = basePos.z + oscillation * Math.cos(time * 0.7);
+    growthSegments.forEach((segData, idx) => {
+      // Calculate when this segment should start growing (cascade effect)
+      const cascadeTime = (idx / growthSegments.length) * cascadeDelay;
+      const timeSinceStart = time - cascadeTime;
 
-      // Pulse emissive intensity
-      nucleus.material.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.2;
-    });
-  }
+      // Growth progress (0 to 1)
+      let growthProgress = Math.max(0, Math.min(1, timeSinceStart * growthSpeed));
+      segmentGrowthProgress[idx] = growthProgress;
 
-  // Animate mitochondria - Pulsing based on mathematical model
-  if (mitochondriaGroup) {
-    mitochondriaGroup.children.forEach((mito) => {
-      const compressionPhase = Math.abs(globalStreamingPhase); // 0-1, peaks at flow extremes
-      const baseScale = mito.userData.baseScale || 1.0;
-      const concentration = mito.userData.concentration || 0.5;
-      const branchDepth = mito.userData.branchDepth || 0;
+      if (segData.mesh) {
+        // GROWTH: Scale mesh to show growth from start point
+        const startPoint = segData.segment;
+        const growthScale = growthProgress;
 
-      // PULSING: Synchronized compression/expansion with streaming rhythm
-      // Mimics ectoplasm being squeezed through branches during contraction
-      const pulseScale = baseScale * (0.8 + compressionPhase * 0.35); // 0.8 to 1.15x variation
-      mito.scale.set(pulseScale, pulseScale, pulseScale);
+        // Pulsing effect on the radius as it grows
+        const pulsePhase = (time + idx * 0.1) * pulseSpeed;
+        const pulseAmount = Math.sin(pulsePhase) * 0.15; // ±15% pulsing
+        const scaledRadius = segData.radius * (1.0 + pulseAmount);
 
-      // BRIGHTNESS: ATP intensity correlates with compression intensity
-      // High concentration sites (from Gray-Scott) brighten more intensely
-      const concentrationBoost = concentration > 0.2 ? concentration * 0.5 : 0;
-      const baseOpacity = 0.65 + concentrationBoost;
-      const flowIntensity = Math.abs(globalStreamingPhase);
-      mito.material.opacity = baseOpacity + (flowIntensity * 0.2);
+        // Update geometry with new radius
+        if (growthProgress > 0) {
+          // Recreate geometry with new radius based on pulse
+          const segment = segData.segment;
+          const dx = segment.x2 - segment.x1;
+          const dy = segment.y2 - segment.y1;
+          const dz = segment.z2 - segment.z1;
+          const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-      // EMISSIVE: Peaks when compressed AND at high-concentration sites
-      // Represents ATP synthase activity during active energy production
-      const concentrationFactor = concentration > 0.15 ? Math.pow(concentration, 1.5) : 0.5;
-      mito.material.emissiveIntensity = 0.2 + (compressionPhase * 0.35 * concentrationFactor);
+          // Scale the length based on growth progress
+          const growthLength = length * growthProgress;
 
-      // POSITIONAL OSCILLATION: Mitochondria shift slightly with flow
-      // Creates wave-like motion through the branching network
-      if (!mito.userData.onBranch) {
-        // For Gray-Scott pattern positions: subtle flow-following motion
-        const flowWave = Math.sin(globalStreamingPhase * Math.PI) * 0.08;
-        const gridAngle = (mito.userData.gridX + mito.userData.gridY) * 0.1;
-        mito.userData.posOffset = {
-          x: Math.cos(gridAngle) * flowWave,
-          y: Math.sin(gridAngle) * flowWave,
-          z: 0
-        };
-      } else {
-        // For branch-positioned mitochondria: linear flow along segment
-        const flowMotion = currentFlowDirection * compressionPhase * 0.08;
-        const segmentProgress = mito.userData.segmentProgress || 0;
-        mito.userData.posOffset = {
-          x: flowMotion * Math.cos(segmentProgress * Math.PI * 2),
-          y: flowMotion * Math.sin(segmentProgress * Math.PI),
-          z: 0
-        };
+          // Create new geometry with current size
+          const newGeometry = new THREE.CylinderGeometry(
+            scaledRadius * growthProgress,
+            scaledRadius * growthProgress,
+            growthLength,
+            8,
+            1
+          );
+
+          // Update the mesh geometry
+          segData.mesh.geometry.dispose();
+          segData.mesh.geometry = newGeometry;
+
+          // Update scale based on growth
+          segData.mesh.scale.z = growthProgress;
+        }
+
+        // PULSING: Brightness and emissive intensity pulse with the growth
+        const brightnessPulse = 0.6 + Math.sin(pulsePhase) * 0.4;
+        segData.material.opacity = 0.95 * brightnessPulse;
+        segData.material.emissiveIntensity = 0.5 + (Math.abs(Math.sin(pulsePhase)) * 0.5);
       }
-
-      // Apply positional offset (accumulated, not replacing base position)
-      const basePos = mito.userData.basePosition || new THREE.Vector3();
-      if (mito.userData.posOffset) {
-        mito.position.x += mito.userData.posOffset.x * 0.1;
-        mito.position.y += mito.userData.posOffset.y * 0.1;
-      }
-
-      // ROTATION: Increases with flow intensity and concentration
-      // Represents rotational motion during compression/expansion cycles
-      const rotationIntensity = (compressionPhase + concentration * 0.3) * 0.5;
-      mito.rotation.x += 0.0015 * rotationIntensity;
-      mito.rotation.y += 0.0025 * rotationIntensity;
-      mito.rotation.z += 0.001 * rotationIntensity;
-    });
-  }
-
-  // Animate protoplasmic streaming - shuttle streaming simulation
-  if (protoplasticStreamParticles && showStreaming) {
-    // Update global streaming phase
-    globalStreamingPhase = Math.sin((time * Math.PI * 2) / streamingPeriod);
-    currentFlowDirection = Math.sign(globalStreamingPhase);
-
-    const positions = protoplasticStreamParticles.geometry.attributes.position.array;
-    const colors = protoplasticStreamParticles.geometry.attributes.color.array;
-
-    // Update particle flow direction colors
-    const outwardColor = new THREE.Color(0x1abc9c); // Cyan
-    const inwardColor = new THREE.Color(0xf39c12); // Orange
-
-    for (let i = 0; i < positions.length; i += 3) {
-      const x = positions[i];
-      const y = positions[i + 1];
-
-      // Calculate position along vein (0 = center, 1 = edge)
-      const angle = Math.atan2(y, x);
-      const distance = Math.sqrt(x * x + y * y);
-
-      // Shuttle flow: move outward when positive, inward when negative
-      const flowSpeed = 0.015 * currentFlowDirection;
-      const newDistance = distance + flowSpeed;
-
-      // Clamp distance and reverse at boundaries
-      let clampedDistance = newDistance;
-      if (clampedDistance > 7.5) {
-        clampedDistance = 7.5;
-        positions[i + 2] = (Math.random() - 0.5) * 2; // Randomize height at edge
-      } else if (clampedDistance < 0.5) {
-        clampedDistance = 0.5;
-        positions[i + 2] = (Math.random() - 0.5) * 2; // Randomize height at center
-      } else {
-        positions[i + 2] += (Math.random() - 0.5) * 0.02; // Brownian motion
-      }
-
-      positions[i] = Math.cos(angle) * clampedDistance;
-      positions[i + 1] = Math.sin(angle) * clampedDistance;
-
-      // Update color based on flow direction
-      const flowColor = currentFlowDirection > 0 ? outwardColor : inwardColor;
-      colors[i] = flowColor.r;
-      colors[i + 1] = flowColor.g;
-      colors[i + 2] = flowColor.b;
-    }
-
-    protoplasticStreamParticles.geometry.attributes.position.needsUpdate = true;
-    protoplasticStreamParticles.geometry.attributes.color.needsUpdate = true;
-  }
-
-  // Animate vein pulsing with protoplasmic streaming
-  if (veinMeshes.length > 0) {
-    veinMeshes.forEach((vein, idx) => {
-      const pulsePhase = globalStreamingPhase + (idx * 0.1); // Stagger veins
-      const pulseScale = 1.0 + Math.sin(pulsePhase) * 0.15; // ±15% thickness variation
-      vein.scale.x = pulseScale;
-      vein.scale.y = pulseScale;
-
-      // Increase brightness during flow
-      const flowIntensity = Math.abs(globalStreamingPhase);
-      vein.material.opacity = 0.35 + (flowIntensity * 0.2);
     });
   }
 
@@ -968,18 +901,26 @@ function updateStats() {
   const distance = camera.position.length().toFixed(1);
   document.getElementById('cam-distance').textContent = distance;
 
-  // Update flow direction based on current streaming phase
-  if (showStreaming) {
-    const flowText = currentFlowDirection > 0 ? 'Outward ➜' : 'Inward ➜';
-    const flowElement = document.getElementById('flow-direction');
-    const phaseElement = document.getElementById('stream-phase');
+  // Update growth stage information
+  if (growthSegments && growthSegments.length > 0) {
+    // Calculate average growth progress
+    let totalProgress = 0;
+    let growingCount = 0;
 
-    if (flowElement) {
-      flowElement.textContent = flowText;
-    }
-    if (phaseElement) {
-      phaseElement.textContent = Math.round(Math.abs(globalStreamingPhase) * 100) + '%';
-    }
+    segmentGrowthProgress.forEach((progress) => {
+      totalProgress += progress;
+      if (progress > 0 && progress < 1) {
+        growingCount++;
+      }
+    });
+
+    const avgProgress = Math.round((totalProgress / growthSegments.length) * 100);
+    document.getElementById('growth-stage').textContent = avgProgress + '%';
+    document.getElementById('branch-count').textContent = growingCount;
+
+    // Update pulse intensity based on average brightness
+    const pulseIntensity = Math.round(60 + (totalProgress / growthSegments.length) * 40);
+    document.getElementById('pulse-intensity').textContent = pulseIntensity + '%';
   }
 }
 
