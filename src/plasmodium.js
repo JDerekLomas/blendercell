@@ -270,77 +270,242 @@ function createNuclei() {
 // Actual: Thousands/millions, supporting high metabolic demands
 // ============================================
 
+// ============================================
+// BRANCHING NETWORK GENERATION (L-System based)
+// ============================================
+function generateBranchingNetwork(iterations = 4, angle = 25) {
+  // L-System: A → F[+A][-A]F A
+  // Generates self-similar fractal branching with optimal diameter ratios
+
+  const branches = [];
+  let turtle = {
+    x: 0,
+    y: 0,
+    z: 0,
+    angle: 90,
+    stack: []
+  };
+
+  function processLSystem(axiom, iterations) {
+    let string = 'A';
+    const rules = {
+      'A': 'F[+A][-A]FA'
+    };
+
+    // Expand L-system string
+    for (let iter = 0; iter < iterations; iter++) {
+      let newString = '';
+      for (let char of string) {
+        newString += rules[char] || char;
+      }
+      string = newString;
+    }
+
+    return string;
+  }
+
+  function executeString(str) {
+    const branchSegments = [];
+    const angleRad = angle * Math.PI / 180;
+    let currentBranch = [];
+
+    for (let char of str) {
+      if (char === 'F') {
+        const segmentLength = 0.5 / Math.pow(2, 0.5); // Scaling for iterations
+        const nextX = turtle.x + segmentLength * Math.cos(turtle.angle);
+        const nextY = turtle.y + segmentLength * Math.sin(turtle.angle);
+
+        currentBranch.push({
+          x1: turtle.x, y1: turtle.y, z1: turtle.z,
+          x2: nextX, y2: nextY, z2: turtle.z,
+          order: 0 // Will be set based on depth
+        });
+
+        turtle.x = nextX;
+        turtle.y = nextY;
+
+      } else if (char === '+') {
+        turtle.angle -= angleRad;
+      } else if (char === '-') {
+        turtle.angle += angleRad;
+      } else if (char === '[') {
+        turtle.stack.push({x: turtle.x, y: turtle.y, z: turtle.z, angle: turtle.angle});
+      } else if (char === ']') {
+        if (currentBranch.length > 0) {
+          branchSegments.push(currentBranch);
+          currentBranch = [];
+        }
+        const saved = turtle.stack.pop();
+        if (saved) {
+          turtle.x = saved.x;
+          turtle.y = saved.y;
+          turtle.z = saved.z;
+          turtle.angle = saved.angle;
+        }
+      }
+    }
+
+    if (currentBranch.length > 0) {
+      branchSegments.push(currentBranch);
+    }
+
+    return branchSegments;
+  }
+
+  const lSystemString = processLSystem('A', iterations);
+  return executeString(lSystemString);
+}
+
 function createMitochondria() {
   mitochondriaGroup = new THREE.Group();
-  const mitochondriaCount = 1200; // Increased for branch coverage
 
-  const mitoGeometry = new THREE.SphereGeometry(0.08, 6, 6);
+  // Generate branching network using L-systems (self-similar fractal)
+  const branchNetwork = generateBranchingNetwork(4, 25);
+
+  // Murray's Law: Diameter scales as r_n = r_0 * (2^(-1/3))^n ≈ 0.794^n
+  const murrayDiameterRatio = Math.pow(2, -1/3); // ≈ 0.7937
+
+  const mitoGeometry = new THREE.SphereGeometry(0.06, 5, 5);
   const mitoMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xff6b35, // Bright orange-red (more visible)
+    color: 0xff6b35,
     emissive: 0xff6b35,
-    emissiveIntensity: 0.3,
-    roughness: 0.5,
+    emissiveIntensity: 0.35,
+    roughness: 0.4,
     metalness: 0.0,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.75,
   });
 
-  // Distribute mitochondria ALONG vein paths (branch-like)
-  let mitoIndex = 0;
+  // Gray-Scott reaction-diffusion pattern: Creates organic clustering
+  // u (ATP/fuel) and v (mitochondrial catalyst) oscillate to form spots/stripes
+  const gridSize = 32;
+  const spacing = 1.5;
 
-  veinPaths.forEach((veinPath, pathIndex) => {
-    // Calculate mitochondria per path based on path length
-    const mitosPerPath = Math.ceil(mitochondriaCount / veinPaths.length);
+  // Initialize Gray-Scott state
+  const u = Array(gridSize * gridSize).fill(1.0);
+  const v = Array(gridSize * gridSize).fill(0.0);
 
-    for (let i = 0; i < mitosPerPath && mitoIndex < mitochondriaCount; i++) {
-      const mito = new THREE.Mesh(mitoGeometry, mitoMaterial.clone());
-
-      // Position along the vein path
-      const pathProgress = i / mitosPerPath; // 0 to 1 along path
-
-      // Get position from vein curve
-      const pathIndex2 = Math.min(
-        Math.floor(pathProgress * (veinPath.length - 1)),
-        veinPath.length - 1
-      );
-      const basePoint = veinPath[pathIndex2];
-
-      // Add small offset perpendicular to vein
-      const offsetAngle = Math.random() * Math.PI * 2;
-      const offsetDist = 0.15 + Math.random() * 0.1;
-      const offset = new THREE.Vector3(
-        Math.cos(offsetAngle) * offsetDist,
-        Math.sin(offsetAngle) * offsetDist * 0.5,
-        (Math.random() - 0.5) * 0.2
-      );
-
-      const position = basePoint.clone().add(offset);
-      mito.position.copy(position);
-
-      // Slight rotation
-      mito.rotation.set(
-        Math.random() * Math.PI * 0.5,
-        Math.random() * Math.PI * 0.5,
-        Math.random() * Math.PI * 0.5
-      );
-
-      // Store animation parameters
-      mito.userData.veinPath = veinPath; // Reference to the vein curve points
-      mito.userData.pathIndex = pathIndex; // which vein
-      mito.userData.baseProgress = pathProgress; // Initial position on vein (0-1)
-      mito.userData.currentProgress = pathProgress; // Current position (changes with flow)
-      mito.userData.basePosition = position.clone();
-      mito.userData.offsets = offset; // Store offset from vein centerline
-
-      mitochondriaGroup.add(mito);
-      mitoIndex++;
+  // Create initial perturbation (nucleation sites)
+  for (let i = 0; i < gridSize * gridSize; i++) {
+    if (Math.random() < 0.005) {
+      u[i] = 0.5;
+      v[i] = 0.25;
     }
+  }
+
+  // Simulate Gray-Scott for a few iterations to create patterns
+  const F = 0.055;
+  const k = 0.062;
+  const D_u = 0.16;
+  const D_v = 0.08;
+  const dt = 1.0;
+
+  for (let iter = 0; iter < 100; iter++) {
+    const u_new = [...u];
+    const v_new = [...v];
+
+    for (let y = 1; y < gridSize - 1; y++) {
+      for (let x = 1; x < gridSize - 1; x++) {
+        const idx = y * gridSize + x;
+        const laplacian_u = (
+          u[(y-1)*gridSize + x] + u[(y+1)*gridSize + x] +
+          u[y*gridSize + x-1] + u[y*gridSize + x+1] - 4*u[idx]
+        ) / (spacing * spacing);
+        const laplacian_v = (
+          v[(y-1)*gridSize + x] + v[(y+1)*gridSize + x] +
+          v[y*gridSize + x-1] + v[y*gridSize + x+1] - 4*v[idx]
+        ) / (spacing * spacing);
+
+        const uv2 = u[idx] * v[idx] * v[idx];
+        u_new[idx] = u[idx] + dt * (D_u * laplacian_u - uv2 + F * (1 - u[idx]));
+        v_new[idx] = v[idx] + dt * (D_v * laplacian_v + uv2 - (F + k) * v[idx]);
+
+        u_new[idx] = Math.max(0, Math.min(1, u_new[idx]));
+        v_new[idx] = Math.max(0, Math.min(1, v_new[idx]));
+      }
+    }
+
+    Object.assign(u, u_new);
+    Object.assign(v, v_new);
+  }
+
+  // Place mitochondria at high-v regions (where pattern concentrated) and along branches
+  const mitoPositions = new Set();
+
+  // Extract positions from reaction-diffusion pattern
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const idx = y * gridSize + x;
+      const concentration = v[idx];
+
+      // High concentration threshold
+      if (concentration > 0.15) {
+        const worldX = (x - gridSize/2) * (spacing / 5);
+        const worldY = (y - gridSize/2) * (spacing / 5);
+        const key = `${Math.round(worldX*10)},${Math.round(worldY*10)}`;
+
+        if (!mitoPositions.has(key)) {
+          mitoPositions.add(key);
+
+          const mito = new THREE.Mesh(mitoGeometry, mitoMaterial.clone());
+          const z = (Math.random() - 0.5) * 0.3;
+
+          mito.position.set(worldX, worldY, z);
+          mito.rotation.set(
+            Math.random() * 0.3,
+            Math.random() * 0.3,
+            Math.random() * 0.3
+          );
+
+          // Store parameters for pulsing animation
+          mito.userData.concentration = concentration;
+          mito.userData.baseScale = 0.8 + concentration * 0.3;
+          mito.userData.branchDepth = Math.round(concentration * 5);
+          mito.userData.gridX = x;
+          mito.userData.gridY = y;
+
+          mitochondriaGroup.add(mito);
+        }
+      }
+    }
+  }
+
+  // Add additional mitochondria along L-system branches with Murray's Law scaling
+  let totalBranchMitos = 0;
+  branchNetwork.forEach((branchSegments, branchIndex) => {
+    branchSegments.forEach((segment, segmentIndex) => {
+      const branchOrder = Math.floor(Math.log2(branchIndex + 1));
+      const diameterRatio = Math.pow(murrayDiameterRatio, branchOrder);
+
+      // Density inversely proportional to diameter (more mitochondria in thinner branches)
+      const mitoCount = Math.ceil(8 * (1 / diameterRatio));
+
+      for (let i = 0; i < mitoCount; i++) {
+        const t = i / mitoCount;
+        const x = segment.x1 + (segment.x2 - segment.x1) * t;
+        const y = segment.y1 + (segment.y2 - segment.y1) * t;
+        const z = segment.z1 + (Math.random() - 0.5) * 0.1;
+
+        const mito = new THREE.Mesh(mitoGeometry, mitoMaterial.clone());
+        mito.position.set(x, y, z);
+        mito.rotation.set(Math.random() * 0.2, Math.random() * 0.2, Math.random() * 0.2);
+
+        mito.userData.branchOrder = branchOrder;
+        mito.userData.diameterRatio = diameterRatio;
+        mito.userData.baseScale = diameterRatio;
+        mito.userData.segmentProgress = t;
+        mito.userData.onBranch = true;
+
+        mitochondriaGroup.add(mito);
+        totalBranchMitos++;
+      }
+    });
   });
 
   plasmodiumGroup.add(mitochondriaGroup);
 
   // Update UI
-  document.getElementById('mito-count').textContent = mitoIndex;
+  document.getElementById('mito-count').textContent = mitochondriaGroup.children.length;
 }
 
 // ============================================
@@ -517,62 +682,66 @@ function animate() {
     });
   }
 
-  // Animate mitochondria - FLOWING WITH protoplasmic streaming through veins
+  // Animate mitochondria - Pulsing based on mathematical model
   if (mitochondriaGroup) {
     mitochondriaGroup.children.forEach((mito) => {
-      const veinPath = mito.userData.veinPath;
-      const baseProgress = mito.userData.baseProgress;
-      const offset = mito.userData.offsets;
+      const compressionPhase = Math.abs(globalStreamingPhase); // 0-1, peaks at flow extremes
+      const baseScale = mito.userData.baseScale || 1.0;
+      const concentration = mito.userData.concentration || 0.5;
+      const branchDepth = mito.userData.branchDepth || 0;
 
-      // FLOWING MOTION: Mitochondria move along the vein with streaming phase
-      // Outward (phase +1): progress increases toward 1.0
-      // Inward (phase -1): progress decreases toward 0.0
-      const flowSpeed = 0.25; // How much the position changes per cycle
-      const flowMotion = globalStreamingPhase * flowSpeed; // -0.25 to +0.25
-
-      // Current progress along vein (0 = center, 1 = terminus)
-      mito.userData.currentProgress = Math.max(0, Math.min(1, baseProgress + flowMotion));
-      const progress = mito.userData.currentProgress;
-
-      // Interpolate position along the actual vein curve
-      const pathIndex = Math.floor(progress * (veinPath.length - 1));
-      const nextIndex = Math.min(pathIndex + 1, veinPath.length - 1);
-      const t = progress * (veinPath.length - 1) - pathIndex;
-
-      const pathPoint1 = veinPath[pathIndex];
-      const pathPoint2 = veinPath[nextIndex];
-
-      // Smooth interpolation along path
-      const posAlongPath = new THREE.Vector3(
-        pathPoint1.x + (pathPoint2.x - pathPoint1.x) * t,
-        pathPoint1.y + (pathPoint2.y - pathPoint1.y) * t,
-        pathPoint1.z + (pathPoint2.z - pathPoint1.z) * t
-      );
-
-      // Add perpendicular offset (mitochondria cluster around vein centerline, not exactly on it)
-      const offsetScale = 1.0 - Math.abs(globalStreamingPhase) * 0.3; // Compress during flow peaks
-      const scaledOffset = offset.clone().multiplyScalar(offsetScale);
-
-      mito.position.copy(posAlongPath.add(scaledOffset));
-
-      // PULSING: Mitochondrial scale mimics ectoplasm compression
-      // Max compression (scale 0.75) at streaming phase extremes, expansion (1.25) at reversals
-      const compressionPhase = Math.abs(globalStreamingPhase); // 0-1
-      const pulseScale = 1.0 - (compressionPhase * 0.25); // 1.0 to 0.75
+      // PULSING: Synchronized compression/expansion with streaming rhythm
+      // Mimics ectoplasm being squeezed through branches during contraction
+      const pulseScale = baseScale * (0.8 + compressionPhase * 0.35); // 0.8 to 1.15x variation
       mito.scale.set(pulseScale, pulseScale, pulseScale);
 
-      // BRIGHTNESS: Reflects ATP production intensity during active flow
-      const baseOpacity = 0.65;
+      // BRIGHTNESS: ATP intensity correlates with compression intensity
+      // High concentration sites (from Gray-Scott) brighten more intensely
+      const concentrationBoost = concentration > 0.2 ? concentration * 0.5 : 0;
+      const baseOpacity = 0.65 + concentrationBoost;
       const flowIntensity = Math.abs(globalStreamingPhase);
-      mito.material.opacity = baseOpacity + (flowIntensity * 0.25);
+      mito.material.opacity = baseOpacity + (flowIntensity * 0.2);
 
-      // Emissive intensity peaks when mitochondria are compressed (high ATP demand)
-      mito.material.emissiveIntensity = 0.25 + compressionPhase * 0.5;
+      // EMISSIVE: Peaks when compressed AND at high-concentration sites
+      // Represents ATP synthase activity during active energy production
+      const concentrationFactor = concentration > 0.15 ? Math.pow(concentration, 1.5) : 0.5;
+      mito.material.emissiveIntensity = 0.2 + (compressionPhase * 0.35 * concentrationFactor);
 
-      // Rotation increases with flow intensity (more vigorous movement at flow extremes)
-      mito.rotation.x += 0.002 * (1 + compressionPhase * 0.5);
-      mito.rotation.y += 0.003 * (1 + compressionPhase * 0.5);
-      mito.rotation.z += 0.0015 * (1 + compressionPhase * 0.5);
+      // POSITIONAL OSCILLATION: Mitochondria shift slightly with flow
+      // Creates wave-like motion through the branching network
+      if (!mito.userData.onBranch) {
+        // For Gray-Scott pattern positions: subtle flow-following motion
+        const flowWave = Math.sin(globalStreamingPhase * Math.PI) * 0.08;
+        const gridAngle = (mito.userData.gridX + mito.userData.gridY) * 0.1;
+        mito.userData.posOffset = {
+          x: Math.cos(gridAngle) * flowWave,
+          y: Math.sin(gridAngle) * flowWave,
+          z: 0
+        };
+      } else {
+        // For branch-positioned mitochondria: linear flow along segment
+        const flowMotion = currentFlowDirection * compressionPhase * 0.08;
+        const segmentProgress = mito.userData.segmentProgress || 0;
+        mito.userData.posOffset = {
+          x: flowMotion * Math.cos(segmentProgress * Math.PI * 2),
+          y: flowMotion * Math.sin(segmentProgress * Math.PI),
+          z: 0
+        };
+      }
+
+      // Apply positional offset (accumulated, not replacing base position)
+      const basePos = mito.userData.basePosition || new THREE.Vector3();
+      if (mito.userData.posOffset) {
+        mito.position.x += mito.userData.posOffset.x * 0.1;
+        mito.position.y += mito.userData.posOffset.y * 0.1;
+      }
+
+      // ROTATION: Increases with flow intensity and concentration
+      // Represents rotational motion during compression/expansion cycles
+      const rotationIntensity = (compressionPhase + concentration * 0.3) * 0.5;
+      mito.rotation.x += 0.0015 * rotationIntensity;
+      mito.rotation.y += 0.0025 * rotationIntensity;
+      mito.rotation.z += 0.001 * rotationIntensity;
     });
   }
 
