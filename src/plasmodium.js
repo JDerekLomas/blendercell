@@ -325,11 +325,12 @@ function createMitochondria() {
       );
 
       // Store animation parameters
-      mito.userData.pathProgress = pathProgress; // 0-1 position on vein
+      mito.userData.veinPath = veinPath; // Reference to the vein curve points
       mito.userData.pathIndex = pathIndex; // which vein
+      mito.userData.baseProgress = pathProgress; // Initial position on vein (0-1)
+      mito.userData.currentProgress = pathProgress; // Current position (changes with flow)
       mito.userData.basePosition = position.clone();
-      mito.userData.pulsePhase = Math.random() * Math.PI * 2;
-      mito.userData.pulseAmplitude = 0.08 + Math.random() * 0.06;
+      mito.userData.offsets = offset; // Store offset from vein centerline
 
       mitochondriaGroup.add(mito);
       mitoIndex++;
@@ -516,38 +517,62 @@ function animate() {
     });
   }
 
-  // Animate mitochondria - pulsing with protoplasmic streaming (like real Physarum)
+  // Animate mitochondria - FLOWING WITH protoplasmic streaming through veins
   if (mitochondriaGroup) {
     mitochondriaGroup.children.forEach((mito) => {
-      const basePos = mito.userData.basePosition;
+      const veinPath = mito.userData.veinPath;
+      const baseProgress = mito.userData.baseProgress;
+      const offset = mito.userData.offsets;
 
-      // Pulsing scale synchronized with streaming phase (mimics ectoplasm wall thickening/thinning)
-      const pulseScale = 1.0 + Math.sin(globalStreamingPhase * Math.PI + mito.userData.pulsePhase) * 0.25;
+      // FLOWING MOTION: Mitochondria move along the vein with streaming phase
+      // Outward (phase +1): progress increases toward 1.0
+      // Inward (phase -1): progress decreases toward 0.0
+      const flowSpeed = 0.25; // How much the position changes per cycle
+      const flowMotion = globalStreamingPhase * flowSpeed; // -0.25 to +0.25
+
+      // Current progress along vein (0 = center, 1 = terminus)
+      mito.userData.currentProgress = Math.max(0, Math.min(1, baseProgress + flowMotion));
+      const progress = mito.userData.currentProgress;
+
+      // Interpolate position along the actual vein curve
+      const pathIndex = Math.floor(progress * (veinPath.length - 1));
+      const nextIndex = Math.min(pathIndex + 1, veinPath.length - 1);
+      const t = progress * (veinPath.length - 1) - pathIndex;
+
+      const pathPoint1 = veinPath[pathIndex];
+      const pathPoint2 = veinPath[nextIndex];
+
+      // Smooth interpolation along path
+      const posAlongPath = new THREE.Vector3(
+        pathPoint1.x + (pathPoint2.x - pathPoint1.x) * t,
+        pathPoint1.y + (pathPoint2.y - pathPoint1.y) * t,
+        pathPoint1.z + (pathPoint2.z - pathPoint1.z) * t
+      );
+
+      // Add perpendicular offset (mitochondria cluster around vein centerline, not exactly on it)
+      const offsetScale = 1.0 - Math.abs(globalStreamingPhase) * 0.3; // Compress during flow peaks
+      const scaledOffset = offset.clone().multiplyScalar(offsetScale);
+
+      mito.position.copy(posAlongPath.add(scaledOffset));
+
+      // PULSING: Mitochondrial scale mimics ectoplasm compression
+      // Max compression (scale 0.75) at streaming phase extremes, expansion (1.25) at reversals
+      const compressionPhase = Math.abs(globalStreamingPhase); // 0-1
+      const pulseScale = 1.0 - (compressionPhase * 0.25); // 1.0 to 0.75
       mito.scale.set(pulseScale, pulseScale, pulseScale);
 
-      // Opacity changes with flow direction (brighter during forward flow, dimmer during backward)
-      const baseOpacity = 0.6;
+      // BRIGHTNESS: Reflects ATP production intensity during active flow
+      const baseOpacity = 0.65;
       const flowIntensity = Math.abs(globalStreamingPhase);
-      const directionBias = currentFlowDirection > 0 ? 0.1 : -0.1;
-      mito.material.opacity = baseOpacity + (flowIntensity * 0.3) + directionBias;
+      mito.material.opacity = baseOpacity + (flowIntensity * 0.25);
 
-      // Emissive intensity increases with flow intensity (brightens during active streaming)
-      mito.material.emissiveIntensity = 0.2 + flowIntensity * 0.4;
+      // Emissive intensity peaks when mitochondria are compressed (high ATP demand)
+      mito.material.emissiveIntensity = 0.25 + compressionPhase * 0.5;
 
-      // Subtle oscillating position within the local flow field (following stream)
-      const streamOffset = Math.sin(globalStreamingPhase * Math.PI * 2) * 0.12;
-      const angle = mito.userData.pathIndex * (Math.PI * 2 / veinPaths.length);
-      const offsetX = Math.cos(angle) * streamOffset;
-      const offsetY = Math.sin(angle) * streamOffset * 0.5;
-
-      mito.position.x = basePos.x + offsetX;
-      mito.position.y = basePos.y + offsetY;
-      mito.position.z = basePos.z + Math.sin(time * 0.5 + mito.userData.pulsePhase) * 0.08;
-
-      // Gentle continuous rotation
-      mito.rotation.x += 0.001 * (1 + flowIntensity);
-      mito.rotation.y += 0.002 * (1 + flowIntensity);
-      mito.rotation.z += 0.0015 * (1 + flowIntensity);
+      // Rotation increases with flow intensity (more vigorous movement at flow extremes)
+      mito.rotation.x += 0.002 * (1 + compressionPhase * 0.5);
+      mito.rotation.y += 0.003 * (1 + compressionPhase * 0.5);
+      mito.rotation.z += 0.0015 * (1 + compressionPhase * 0.5);
     });
   }
 
