@@ -141,7 +141,8 @@ function createGrowingSlimeNetwork() {
   });
 
   // Generate L-system branching tree (starting small, growing large)
-  const branchNetwork = generateBranchingNetwork(6, 28);
+  // 8 iterations for 4x more branches (400% increase), 22° for finer filament-like structure
+  const branchNetwork = generateBranchingNetwork(8, 22);
 
   // Convert all branch segments into growth-animated tentacle tubes
   branchNetwork.forEach((branchSegments, branchIndex) => {
@@ -151,8 +152,8 @@ function createGrowingSlimeNetwork() {
       const diameterRatio = Math.pow(murrayRatio, branchOrder);
 
       // Base radius follows Murray's Law - thinner branches as they extend
-      // Start very thin (like hairs) and grow thicker over time
-      const baseRadius = 0.05; // Start thin, like hairs
+      // Start extremely thin (filament-like) and grow thicker over time
+      const baseRadius = 0.02; // Start ultra-thin, like fine filaments
       const tubeRadius = baseRadius * diameterRatio;
 
       // Store segment data for growth animation
@@ -742,9 +743,9 @@ function animate() {
 
   // Animate growing tree: branches grow and pulse with propulsive motion
   if (growthSegments && growthSegments.length > 0) {
-    const branchGrowthSpeed = 0.08; // Slow, steady growth (like tree growing)
+    const branchGrowthSpeed = 0.15; // Faster growth for continuous expansion
     const pulseSpeed = 2.5; // Pulsing frequency (propulsion rhythm)
-    const cascadeDelay = 0.2; // Small cascading delay between branches
+    const cascadeDelay = 0.08; // Rapid cascade for denser growth
 
     // BRANCHES ANIMATION: Grow and pulse with propulsive motion
     growthSegments.forEach((segData, idx) => {
@@ -755,9 +756,9 @@ function animate() {
       // Growth progress - keeps growing indefinitely (no cap at 1)
       let growthProgress = Math.max(0, timeSinceStart * branchGrowthSpeed);
 
-      // Size multiplier: grows from 1x to 4x (300% increase) over time
+      // Size multiplier: grows from 1x to 6x (500% increase) over time
       // Tapers off as it gets larger (logarithmic growth for realism)
-      const sizeMultiplier = 1.0 + (3.0 * Math.tanh(growthProgress * 0.5));
+      const sizeMultiplier = 1.0 + (5.0 * Math.tanh(growthProgress * 0.3));
 
       segmentGrowthProgress[idx] = Math.min(growthProgress, 1.0); // Cap display at 100%
 
