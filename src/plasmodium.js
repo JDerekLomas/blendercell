@@ -887,25 +887,6 @@ function setupEventListeners() {
     controls.target.set(0, 0, 0);
   });
 
-  // Toggle nuclei
-  const toggleNucleiBtn = document.getElementById('toggle-nuclei');
-  toggleNucleiBtn.addEventListener('click', () => {
-    showNuclei = !showNuclei;
-    if (nucleiGroup) {
-      nucleiGroup.visible = showNuclei;
-    }
-    toggleNucleiBtn.style.opacity = showNuclei ? '1' : '0.5';
-  });
-
-  // Toggle streaming
-  const toggleStreamBtn = document.getElementById('toggle-stream');
-  toggleStreamBtn.addEventListener('click', () => {
-    showStreaming = !showStreaming;
-    if (protoplasticStreamParticles) {
-      protoplasticStreamParticles.visible = showStreaming;
-    }
-    toggleStreamBtn.style.opacity = showStreaming ? '1' : '0.5';
-  });
 }
 
 // ============================================
