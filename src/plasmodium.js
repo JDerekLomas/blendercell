@@ -36,14 +36,14 @@ let veinPaths = []; // Store vein path data for mitochondrial positioning
 // ============================================
 
 function init() {
-  // Scene
+  // Scene - black background for tree-like branching visualization
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0a0f);
-  scene.fog = new THREE.Fog(0x0a0a0f, 50, 200);
+  scene.background = new THREE.Color(0x000000);
+  scene.fog = new THREE.Fog(0x000000, 200, 500);
 
-  // Camera - adjusted for larger organism
+  // Camera - positioned for tree-like view
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 8, 20);
+  camera.position.set(0, 20, 40);
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -82,31 +82,32 @@ function init() {
 }
 
 // ============================================
-// LIGHTING - Designed for bioluminescent appearance
+// LIGHTING - Yellow/Gold on black background
 // ============================================
 
 function setupLighting() {
-  // Ambient light - subtle greenish-yellow (organism color)
-  const ambient = new THREE.AmbientLight(0x2a3a1a, 0.5);
+  // Minimal ambient - keep background black
+  const ambient = new THREE.AmbientLight(0xffffff, 0.1);
   scene.add(ambient);
 
-  // Main light - cool blue (study light)
-  const mainLight = new THREE.DirectionalLight(0x6699ff, 1.0);
-  mainLight.position.set(15, 20, 15);
+  // Main key light - bright yellow/gold
+  const mainLight = new THREE.DirectionalLight(0xffeb3b, 1.3);
+  mainLight.position.set(20, 25, 15);
+  mainLight.castShadow = true;
   scene.add(mainLight);
 
-  // Fill light - warm yellow
-  const fillLight = new THREE.DirectionalLight(0xffcc33, 0.4);
-  fillLight.position.set(-15, 5, -15);
+  // Fill light - softer yellow
+  const fillLight = new THREE.DirectionalLight(0xffc107, 0.7);
+  fillLight.position.set(-20, 5, -15);
   scene.add(fillLight);
 
-  // Rim light for edge definition
-  const rimLight = new THREE.DirectionalLight(0x00ff88, 0.5);
-  rimLight.position.set(0, -10, 20);
+  // Rim light - edge definition in yellow
+  const rimLight = new THREE.DirectionalLight(0xffeb3b, 0.9);
+  rimLight.position.set(0, -15, 25);
   scene.add(rimLight);
 
-  // Point light - interior glow (protoplasmic streaming effect)
-  const pointLight = new THREE.PointLight(0x00ff88, 0.4, 50);
+  // Point light - interior glow for veins
+  const pointLight = new THREE.PointLight(0xffeb3b, 0.8, 100);
   pointLight.position.set(0, 0, 0);
   scene.add(pointLight);
 }
@@ -118,31 +119,81 @@ function setupLighting() {
 function createPlasmodium() {
   plasmodiumGroup = new THREE.Group();
 
-  // Main cell body - irregular amorphous blob shape
-  // Physarum grows in dendritic patterns, so we create an organic shape
-  const cellGeometry = createPlasmodiumGeometry();
+  // Create visible L-system branching network as the main visual
+  // No cell membrane - just the branching tree structure
+  createBranchingVeinNetwork();
 
-  // Material - semi-transparent yellowish with slight iridescence
-  const cellMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xd4a837,
-    roughness: 0.4,
-    metalness: 0.1,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.5,
-    transparent: true,
-    opacity: 0.7,
-    side: THREE.DoubleSide,
-  });
-
-  cellMembrane = new THREE.Mesh(cellGeometry, cellMaterial);
-  plasmodiumGroup.add(cellMembrane);
-
-  // Add internal structures
+  // Add internal structures positioned along the branches
   createNuclei();
   createMitochondria();
   createCytoplasmaticNetwork();
 
   scene.add(plasmodiumGroup);
+}
+
+// ============================================
+// VISIBLE BRANCHING VEIN NETWORK
+// L-system based tube geometry for tree-like appearance
+// ============================================
+
+function createBranchingVeinNetwork() {
+  const veinGroup = new THREE.Group();
+  const branchNetwork = generateBranchingNetwork(5, 30);
+
+  // Yellow/gold material for veins
+  const veinMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xffeb3b,
+    emissive: 0xffa500,
+    emissiveIntensity: 0.6,
+    roughness: 0.2,
+    metalness: 0.3,
+    transparent: true,
+    opacity: 0.9,
+  });
+
+  // Create tubes for each branch segment
+  branchNetwork.forEach((branchSegments, branchIndex) => {
+    branchSegments.forEach((segment, segmentIndex) => {
+      const branchOrder = Math.floor(Math.log2(branchIndex + 1));
+      const murrayRatio = Math.pow(2, -1/3); // ≈ 0.794
+      const diameterRatio = Math.pow(murrayRatio, branchOrder);
+
+      // Diameter decreases with branch order (following Murray's Law)
+      const baseRadius = 0.3;
+      const tubeRadius = baseRadius * diameterRatio;
+
+      // Create cylinder from segment start to end
+      const dx = segment.x2 - segment.x1;
+      const dy = segment.y2 - segment.y1;
+      const dz = segment.z2 - segment.z1;
+      const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+      const tubeGeometry = new THREE.CylinderGeometry(tubeRadius, tubeRadius, length, 8, 1);
+      const tube = new THREE.Mesh(tubeGeometry, veinMaterial.clone());
+
+      // Position tube at segment midpoint
+      tube.position.set(
+        (segment.x1 + segment.x2) / 2,
+        (segment.y1 + segment.y2) / 2,
+        (segment.z1 + segment.z2) / 2
+      );
+
+      // Rotate to align with segment direction
+      const direction = new THREE.Vector3(dx, dy, dz).normalize();
+      const upVector = new THREE.Vector3(0, 1, 0);
+      const axis = new THREE.Vector3().crossVectors(upVector, direction).normalize();
+      const angle = Math.acos(upVector.dot(direction));
+
+      if (axis.length() > 0) {
+        tube.quaternion.setFromAxisAngle(axis, angle);
+      }
+
+      veinGroup.add(tube);
+      veinMeshes.push(tube);
+    });
+  });
+
+  plasmodiumGroup.add(veinGroup);
 }
 
 // ============================================
@@ -216,48 +267,55 @@ function createPlasmodiumGeometry(radius = 8, segments = 64) {
 
 function createNuclei() {
   nucleiGroup = new THREE.Group();
-  const nucleusCount = 400; // Representative number
 
-  const nucleusGeometry = new THREE.IcosahedronGeometry(0.2, 3);
+  const nucleusGeometry = new THREE.IcosahedronGeometry(0.15, 3);
   const nucleusMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xf39c12, // Golden yellow
-    emissive: 0xf39c12,
-    emissiveIntensity: 0.4,
-    roughness: 0.3,
-    metalness: 0.2,
+    color: 0xffeb3b, // Bright yellow
+    emissive: 0xffa500,
+    emissiveIntensity: 0.5,
+    roughness: 0.2,
+    metalness: 0.4,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.85,
   });
 
-  // Distribute nuclei throughout the plasmodium interior
-  for (let i = 0; i < nucleusCount; i++) {
-    const nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial.clone());
+  // Generate branching network for nucleus positioning
+  const branchNetwork = generateBranchingNetwork(5, 30);
+  let nucleusCount = 0;
 
-    // Random position within plasmodium
-    const angle1 = Math.random() * Math.PI * 2;
-    const angle2 = Math.random() * Math.PI * 2;
-    const radius = Math.random() * 7; // Distributed throughout
+  // Distribute nuclei along the branching network (syncytium property)
+  branchNetwork.forEach((branchSegments, branchIndex) => {
+    branchSegments.forEach((segment, segmentIndex) => {
+      const nucleiPerSegment = 4; // Multiple nuclei per vein segment
 
-    const x = radius * Math.cos(angle1) * Math.sin(angle2);
-    const y = radius * Math.sin(angle1) * Math.sin(angle2);
-    const z = radius * Math.cos(angle2);
+      for (let i = 0; i < nucleiPerSegment; i++) {
+        const t = (i + Math.random()) / nucleiPerSegment;
 
-    nucleus.position.set(x, y, z);
+        // Interpolate position along segment
+        const x = segment.x1 + (segment.x2 - segment.x1) * t;
+        const y = segment.y1 + (segment.y2 - segment.y1) * t;
+        const z = segment.z1 + (segment.z2 - segment.z1) * t;
 
-    // Slight random rotation
-    nucleus.rotation.set(
-      Math.random() * Math.PI,
-      Math.random() * Math.PI,
-      Math.random() * Math.PI
-    );
+        const nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial.clone());
+        nucleus.position.set(x, y, z);
 
-    // Store animation parameters
-    nucleus.userData.oscillationSpeed = 0.5 + Math.random() * 1.5;
-    nucleus.userData.oscillationPhase = Math.random() * Math.PI * 2;
-    nucleus.userData.basePosition = { x, y, z };
+        // Slight random rotation
+        nucleus.rotation.set(
+          Math.random() * Math.PI,
+          Math.random() * Math.PI,
+          Math.random() * Math.PI
+        );
 
-    nucleiGroup.add(nucleus);
-  }
+        // Store animation parameters
+        nucleus.userData.oscillationSpeed = 0.5 + Math.random() * 1.5;
+        nucleus.userData.oscillationPhase = Math.random() * Math.PI * 2;
+        nucleus.userData.basePosition = { x, y, z };
+
+        nucleiGroup.add(nucleus);
+        nucleusCount++;
+      }
+    });
+  });
 
   plasmodiumGroup.add(nucleiGroup);
 
@@ -367,13 +425,13 @@ function createMitochondria() {
 
   const mitoGeometry = new THREE.SphereGeometry(0.06, 5, 5);
   const mitoMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xff6b35,
-    emissive: 0xff6b35,
-    emissiveIntensity: 0.35,
-    roughness: 0.4,
-    metalness: 0.0,
+    color: 0xffa500,   // Orange (energy nodes)
+    emissive: 0xff8c00, // Dark orange glow
+    emissiveIntensity: 0.5,
+    roughness: 0.3,
+    metalness: 0.2,
     transparent: true,
-    opacity: 0.75,
+    opacity: 0.8,
   });
 
   // Gray-Scott reaction-diffusion pattern: Creates organic clustering
