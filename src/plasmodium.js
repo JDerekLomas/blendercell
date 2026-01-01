@@ -26,6 +26,13 @@ let currentFlowDirection = 1; // 1 = outward, -1 = inward
 let veinMeshes = []; // Store vein meshes for pulsing animation
 let veinPaths = []; // Store vein path data for mitochondrial positioning
 
+// Shader-based rendering and flow simulation
+let growthSegments = []; // Track all branch segments for growth animation
+let segmentGrowthProgress = []; // Growth progress per segment (0-1)
+let basePositions = []; // Store base positions for pulsive movement
+let segmentFlows = []; // Flow rate through each segment (biologically plausible)
+let sharedTubeGeometry = null; // Single tube geometry, reused for all segments
+
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -119,26 +126,144 @@ function createPlasmodium() {
 }
 
 // ============================================
+// SHADER SYSTEM FOR EFFICIENT VEIN RENDERING
+// Handles growth, pulsing, and flow visualization on GPU
+// ============================================
+
+function createVeinShaderMaterial() {
+  const vertexShader = `
+    uniform float uGrowthProgress;
+    uniform float uSizeMultiplier;
+    uniform float uPulsePhase;
+    uniform float uBaseRadius;
+
+    varying float vFlowIntensity;
+    varying float vGrowthProgress;
+
+    void main() {
+      // Scale geometry based on growth and size multiplier
+      vec3 scaled = position;
+
+      // Radius grows with size multiplier and pulsing
+      float pulseAmount = abs(sin(uPulsePhase)) * 0.2;
+      float radiusScale = uBaseRadius * uSizeMultiplier * (1.0 + pulseAmount);
+
+      // Apply radius to x,z (circular cross-section)
+      scaled.x *= radiusScale * uGrowthProgress;
+      scaled.z *= radiusScale * uGrowthProgress;
+
+      // Length grows to 1.0 then stays
+      float lengthGrowthCap = min(uGrowthProgress, 1.0);
+      scaled.y *= lengthGrowthCap;
+
+      vFlowIntensity = radiusScale;
+      vGrowthProgress = uGrowthProgress;
+
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(scaled, 1.0);
+    }
+  `;
+
+  const fragmentShader = `
+    uniform float uPulsePhase;
+
+    varying float vFlowIntensity;
+    varying float vGrowthProgress;
+
+    void main() {
+      // Base slime color (yellow)
+      vec3 baseColor = vec3(1.0, 0.92, 0.23); // #ffeb3b
+
+      // Pulse creates brightness variation
+      float pulse = abs(sin(uPulsePhase));
+      float brightness = 0.65 + pulse * 0.3;
+
+      // Flow-based coloring (brighter = more flow)
+      vec3 flowColor = mix(
+        vec3(1.0, 0.92, 0.23),
+        vec3(1.0, 0.96, 0.3),
+        vFlowIntensity * 0.5
+      );
+
+      // Opacity varies with pulse and growth
+      float opacity = 0.95 * brightness * min(vGrowthProgress, 1.0);
+
+      gl_FragColor = vec4(flowColor, opacity);
+    }
+  `;
+
+  return new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+      uGrowthProgress: { value: 0 },
+      uSizeMultiplier: { value: 1 },
+      uPulsePhase: { value: 0 },
+      uBaseRadius: { value: 0.02 },
+    },
+    transparent: true,
+    side: THREE.DoubleSide,
+    wireframe: false,
+  });
+}
+
+// ============================================
+// FLOW CALCULATION - BIOLOGICALLY PLAUSIBLE ADAPTATION
+// Based on Hagen-Poiseuille flow through elastic tubes
+// ============================================
+
+function calculateSegmentFlows() {
+  // Simple model: flow is inversely proportional to resistance
+  // Resistance ∝ 1/r⁴ (from Hagen-Poiseuille equation)
+
+  const viscosity = 1.0; // Arbitrary units
+  let totalFlow = 0;
+
+  growthSegments.forEach((seg, idx) => {
+    // Resistance to flow (inverse of r⁴)
+    const resistance = 1.0 / (Math.pow(seg.radius, 4) + 0.001);
+
+    // Flow = pressure difference / resistance
+    // Pressure from "growing tip" pulling (simplified model)
+    const pressureDifference = 1.0;
+    const flow = pressureDifference / (resistance * viscosity);
+
+    segmentFlows[idx] = flow;
+    totalFlow += flow;
+  });
+
+  // Normalize flows (0 to 1)
+  if (totalFlow > 0) {
+    segmentFlows = segmentFlows.map(f => f / totalFlow);
+  }
+
+  return segmentFlows;
+}
+
+function adaptNetworkToFlow() {
+  // Optional: Thicken high-flow veins, thin out low-flow veins
+  // This creates self-optimizing network
+
+  const flowThreshold = 0.01;
+
+  growthSegments.forEach((seg, idx) => {
+    const flow = segmentFlows[idx] || 0;
+
+    // Murray's Law adaptation: radius grows with flow demand
+    if (flow > flowThreshold) {
+      // Gradually thicken active veins
+      seg.radius += 0.00001 * flow;
+    }
+  });
+}
+
+// ============================================
 // GROWING SLIME TREE NETWORK
 // Pure L-system branching - no body, just growing branches with pulsing propulsion
 // ============================================
 
-let growthSegments = []; // Track all branch segments for growth animation
-let segmentGrowthProgress = []; // Growth progress per segment (0-1)
-let basePositions = []; // Store base positions for pulsing movement
-
 function createGrowingSlimeNetwork() {
-  // Yellow/gold material for slime branches
-  const slimeMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xffeb3b,
-    emissive: 0xffeb3b,
-    emissiveIntensity: 0.8,
-    roughness: 0.15,
-    metalness: 0.4,
-    transparent: true,
-    opacity: 0.95,
-    flatShading: false,
-  });
+  // Create shared cylinder geometry (unit cylinder, will be scaled by shaders)
+  sharedTubeGeometry = new THREE.CylinderGeometry(1.0, 1.0, 1.0, 16, 1);
 
   // Generate L-system branching tree (starting small, growing large)
   // 8 iterations for 4x more branches (400% increase), 22° for finer filament-like structure
@@ -156,20 +281,24 @@ function createGrowingSlimeNetwork() {
       const baseRadius = 0.02; // Start ultra-thin, like fine filaments
       const tubeRadius = baseRadius * diameterRatio;
 
+      // Create shader material for this segment (unique uniforms)
+      const shaderMaterial = createVeinShaderMaterial();
+
       // Store segment data for growth animation
       growthSegments.push({
         segment: segment,
         radius: tubeRadius,
-        material: slimeMaterial.clone(),
+        material: shaderMaterial,
         mesh: null,
         branchOrder: branchOrder,
       });
 
       segmentGrowthProgress.push(0); // All segments start at 0% grown
+      segmentFlows.push(0); // All flows start at 0
     });
   });
 
-  // Create initial tube meshes for tentacles (they'll grow via animation)
+  // Create tube meshes using shared geometry and shader materials
   growthSegments.forEach((segData, idx) => {
     const segment = segData.segment;
     const dx = segment.x2 - segment.x1;
@@ -177,11 +306,10 @@ function createGrowingSlimeNetwork() {
     const dz = segment.z2 - segment.z1;
     const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-    // Create cylinder tube for tentacle
-    const tubeGeometry = new THREE.CylinderGeometry(segData.radius, segData.radius, length, 8, 1);
-    const tube = new THREE.Mesh(tubeGeometry, segData.material);
+    // Create mesh using shared geometry and shader material
+    const tube = new THREE.Mesh(sharedTubeGeometry, segData.material);
 
-    // Position tube starting from body (at segment.x1, y1, z1)
+    // Position tube at segment center
     tube.position.set(
       (segment.x1 + segment.x2) / 2,
       (segment.y1 + segment.y2) / 2,
@@ -198,6 +326,9 @@ function createGrowingSlimeNetwork() {
       tube.quaternion.setFromAxisAngle(axis, angle);
     }
 
+    // Store original length in userData for shader scaling
+    tube.userData.segmentLength = length;
+
     // Store reference
     segData.mesh = tube;
     growthSegments[idx] = segData;
@@ -212,6 +343,9 @@ function createGrowingSlimeNetwork() {
     plasmodiumGroup.add(tube);
     veinMeshes.push(tube);
   });
+
+  // Initialize flows
+  calculateSegmentFlows();
 }
 
 // ============================================
@@ -747,7 +881,14 @@ function animate() {
     const pulseSpeed = 2.5; // Pulsing frequency (propulsion rhythm)
     const cascadeDelay = 0.08; // Rapid cascade for denser growth
 
+    // Recalculate flows periodically (every 10 frames)
+    if (Math.floor(time * 60) % 10 === 0) {
+      calculateSegmentFlows();
+      adaptNetworkToFlow();
+    }
+
     // BRANCHES ANIMATION: Grow and pulse with propulsive motion
+    // SHADER-BASED: All geometry deformation happens on GPU
     growthSegments.forEach((segData, idx) => {
       // Each branch starts growing with a cascade delay
       const cascadeTime = (idx / growthSegments.length) * cascadeDelay;
@@ -762,53 +903,22 @@ function animate() {
 
       segmentGrowthProgress[idx] = Math.min(growthProgress, 1.0); // Cap display at 100%
 
-      if (segData.mesh) {
-        // PULSING: Create propulsive motion through branches
+      if (segData.mesh && segData.material.uniforms) {
+        // UPDATE SHADER UNIFORMS (super cheap - just CPU values, no geometry work)
+        // These uniforms drive all the animation on the GPU
+
+        // Growth and size
+        segData.material.uniforms.uGrowthProgress.value = growthProgress;
+        segData.material.uniforms.uSizeMultiplier.value = sizeMultiplier;
+        segData.material.uniforms.uBaseRadius.value = segData.radius;
+
+        // Pulsing (peristaltic wave)
         const pulsePhase = (time + idx * 0.05) * pulseSpeed;
-        const pulseWave = Math.sin(pulsePhase); // -1 to 1
-        const pulseAmount = Math.abs(pulseWave) * 0.2; // ±20% pulsing
-
-        // Branch tapers as it extends (Murray's Law already in base radius)
-        // Radius grows with size multiplier for thickening branches
-        const scaledRadius = segData.radius * sizeMultiplier * (1.0 + pulseAmount);
-
-        if (growthProgress > 0) {
-          // Recreate branch geometry with pulsing radius
-          const segment = segData.segment;
-          const dx = segment.x2 - segment.x1;
-          const dy = segment.y2 - segment.y1;
-          const dz = segment.z2 - segment.z1;
-          const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-          // Scale the length based on growth progress (caps at 1x length after grown)
-          const lengthGrowthCap = Math.min(growthProgress, 1.0);
-          const growthLength = length * lengthGrowthCap;
-
-          // Create new geometry with current size
-          const newGeometry = new THREE.CylinderGeometry(
-            scaledRadius * lengthGrowthCap,
-            scaledRadius * lengthGrowthCap,
-            growthLength,
-            8,
-            1
-          );
-
-          // Update the mesh geometry
-          segData.mesh.geometry.dispose();
-          segData.mesh.geometry = newGeometry;
-
-          // Update scale based on growth - stops at 1 once fully extended
-          segData.mesh.scale.z = lengthGrowthCap;
-        }
-
-        // PROPULSIVE PULSING: Brightness and intensity pulse together
-        // Peak brightness when pulse is strongest (propelling the slime forward)
-        const brightnessPulse = 0.65 + Math.abs(pulseWave) * 0.3; // 65-95% opacity
-        segData.material.opacity = 0.95 * brightnessPulse;
-        segData.material.emissiveIntensity = 0.4 + (Math.abs(pulseWave) * 0.6); // 40-100% glow
+        segData.material.uniforms.uPulsePhase.value = pulsePhase;
 
         // PROPULSIVE POSITION: Pulse creates wave of motion through branches
         // Makes it look like the pulse is pushing the slime along
+        const pulseWave = Math.sin(pulsePhase); // -1 to 1
         const propulsionAmount = pulseWave * 0.08; // -0.08 to 0.08 units
         const segment = segData.segment;
         const direction = new THREE.Vector3(
