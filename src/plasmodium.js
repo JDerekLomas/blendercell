@@ -119,17 +119,16 @@ function createPlasmodium() {
 }
 
 // ============================================
-// GROWING SLIME NETWORK
-// Globular body with extending tentacles - inspired by real Physarum
+// GROWING SLIME TREE NETWORK
+// Pure L-system branching - no body, just growing branches with pulsing propulsion
 // ============================================
 
-let globalBody = null; // Central globular mass
-let growthSegments = []; // Track all tentacle segments for growth animation
+let growthSegments = []; // Track all branch segments for growth animation
 let segmentGrowthProgress = []; // Growth progress per segment (0-1)
-let bodyGrowthProgress = 0; // Body growth from 0 to 1
+let basePositions = []; // Store base positions for pulsing movement
 
 function createGrowingSlimeNetwork() {
-  // Yellow/gold material for slime
+  // Yellow/gold material for slime branches
   const slimeMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xffeb3b,
     emissive: 0xffeb3b,
@@ -141,15 +140,8 @@ function createGrowingSlimeNetwork() {
     flatShading: false,
   });
 
-  // CREATE CENTRAL GLOBULAR BODY
-  const bodyGeometry = new THREE.IcosahedronGeometry(1.5, 4);
-  globalBody = new THREE.Mesh(bodyGeometry, slimeMaterial.clone());
-  globalBody.position.set(0, 0, 0);
-  plasmodiumGroup.add(globalBody);
-  veinMeshes.push(globalBody);
-
-  // CREATE BRANCHING TENTACLES extending from the body
-  const branchNetwork = generateBranchingNetwork(5, 30);
+  // Generate L-system branching tree (starting small, growing large)
+  const branchNetwork = generateBranchingNetwork(6, 28);
 
   // Convert all branch segments into growth-animated tentacle tubes
   branchNetwork.forEach((branchSegments, branchIndex) => {
@@ -159,7 +151,8 @@ function createGrowingSlimeNetwork() {
       const diameterRatio = Math.pow(murrayRatio, branchOrder);
 
       // Base radius follows Murray's Law - thinner branches as they extend
-      const baseRadius = 0.5;
+      // Start very thin (like hairs) and grow thicker over time
+      const baseRadius = 0.05; // Start thin, like hairs
       const tubeRadius = baseRadius * diameterRatio;
 
       // Store segment data for growth animation
@@ -207,6 +200,13 @@ function createGrowingSlimeNetwork() {
     // Store reference
     segData.mesh = tube;
     growthSegments[idx] = segData;
+
+    // Store base position for propulsive movement
+    basePositions[idx] = {
+      x: tube.position.x,
+      y: tube.position.y,
+      z: tube.position.z
+    };
 
     plasmodiumGroup.add(tube);
     veinMeshes.push(tube);
@@ -740,61 +740,53 @@ function animate() {
 
   const time = clock.getElapsedTime();
 
-  // Animate growing slime: globular body + extending tentacles
-  if (globalBody || (growthSegments && growthSegments.length > 0)) {
-    const bodyGrowthSpeed = 0.1; // Body grows slightly slower
-    const tentacleGrowthSpeed = 0.15; // Tentacles grow faster
-    const pulseSpeed = 3.0; // Pulsing frequency
-    const cascadeDelay = 0.5; // Delay before tentacles start
+  // Animate growing tree: branches grow and pulse with propulsive motion
+  if (growthSegments && growthSegments.length > 0) {
+    const branchGrowthSpeed = 0.08; // Slow, steady growth (like tree growing)
+    const pulseSpeed = 2.5; // Pulsing frequency (propulsion rhythm)
+    const cascadeDelay = 0.2; // Small cascading delay between branches
 
-    // BODY ANIMATION: Grows from start
-    if (globalBody) {
-      bodyGrowthProgress = Math.min(1, time * bodyGrowthSpeed);
-
-      // Body pulsing
-      const bodyPulse = (time) * pulseSpeed;
-      const bodyPulseAmount = Math.sin(bodyPulse) * 0.2; // ±20% pulsing
-      const bodyScale = 1.0 + bodyGrowthProgress * 0.5 + bodyPulseAmount;
-
-      globalBody.scale.set(bodyScale, bodyScale, bodyScale);
-
-      // Body brightness pulsing
-      const bodyBrightness = 0.6 + Math.sin(bodyPulse) * 0.35;
-      globalBody.material.opacity = 0.95 * bodyBrightness;
-      globalBody.material.emissiveIntensity = 0.5 + (Math.abs(Math.sin(bodyPulse)) * 0.5);
-    }
-
-    // TENTACLES ANIMATION: Grow after body starts
+    // BRANCHES ANIMATION: Grow and pulse with propulsive motion
     growthSegments.forEach((segData, idx) => {
-      // Tentacles start growing after body growth begins
-      const tentacleStartTime = cascadeDelay;
-      const cascadeTime = tentacleStartTime + (idx / growthSegments.length) * 0.5;
+      // Each branch starts growing with a cascade delay
+      const cascadeTime = (idx / growthSegments.length) * cascadeDelay;
       const timeSinceStart = time - cascadeTime;
 
-      // Growth progress (0 to 1)
-      let growthProgress = Math.max(0, Math.min(1, timeSinceStart * tentacleGrowthSpeed));
-      segmentGrowthProgress[idx] = growthProgress;
+      // Growth progress - keeps growing indefinitely (no cap at 1)
+      let growthProgress = Math.max(0, timeSinceStart * branchGrowthSpeed);
+
+      // Size multiplier: grows from 1x to 4x (300% increase) over time
+      // Tapers off as it gets larger (logarithmic growth for realism)
+      const sizeMultiplier = 1.0 + (3.0 * Math.tanh(growthProgress * 0.5));
+
+      segmentGrowthProgress[idx] = Math.min(growthProgress, 1.0); // Cap display at 100%
 
       if (segData.mesh) {
-        const pulsePhase = (time + idx * 0.1) * pulseSpeed;
-        const pulseAmount = Math.sin(pulsePhase) * 0.15; // ±15% pulsing
-        const scaledRadius = segData.radius * (1.0 + pulseAmount);
+        // PULSING: Create propulsive motion through branches
+        const pulsePhase = (time + idx * 0.05) * pulseSpeed;
+        const pulseWave = Math.sin(pulsePhase); // -1 to 1
+        const pulseAmount = Math.abs(pulseWave) * 0.2; // ±20% pulsing
+
+        // Branch tapers as it extends (Murray's Law already in base radius)
+        // Radius grows with size multiplier for thickening branches
+        const scaledRadius = segData.radius * sizeMultiplier * (1.0 + pulseAmount);
 
         if (growthProgress > 0) {
-          // Recreate tentacle geometry with pulsing radius
+          // Recreate branch geometry with pulsing radius
           const segment = segData.segment;
           const dx = segment.x2 - segment.x1;
           const dy = segment.y2 - segment.y1;
           const dz = segment.z2 - segment.z1;
           const length = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-          // Scale the length based on growth progress
-          const growthLength = length * growthProgress;
+          // Scale the length based on growth progress (caps at 1x length after grown)
+          const lengthGrowthCap = Math.min(growthProgress, 1.0);
+          const growthLength = length * lengthGrowthCap;
 
           // Create new geometry with current size
           const newGeometry = new THREE.CylinderGeometry(
-            scaledRadius * growthProgress,
-            scaledRadius * growthProgress,
+            scaledRadius * lengthGrowthCap,
+            scaledRadius * lengthGrowthCap,
             growthLength,
             8,
             1
@@ -804,14 +796,30 @@ function animate() {
           segData.mesh.geometry.dispose();
           segData.mesh.geometry = newGeometry;
 
-          // Update scale based on growth
-          segData.mesh.scale.z = growthProgress;
+          // Update scale based on growth - stops at 1 once fully extended
+          segData.mesh.scale.z = lengthGrowthCap;
         }
 
-        // PULSING: Brightness and emissive intensity pulse with the growth
-        const brightnessPulse = 0.6 + Math.sin(pulsePhase) * 0.4;
+        // PROPULSIVE PULSING: Brightness and intensity pulse together
+        // Peak brightness when pulse is strongest (propelling the slime forward)
+        const brightnessPulse = 0.65 + Math.abs(pulseWave) * 0.3; // 65-95% opacity
         segData.material.opacity = 0.95 * brightnessPulse;
-        segData.material.emissiveIntensity = 0.5 + (Math.abs(Math.sin(pulsePhase)) * 0.5);
+        segData.material.emissiveIntensity = 0.4 + (Math.abs(pulseWave) * 0.6); // 40-100% glow
+
+        // PROPULSIVE POSITION: Pulse creates wave of motion through branches
+        // Makes it look like the pulse is pushing the slime along
+        const propulsionAmount = pulseWave * 0.08; // -0.08 to 0.08 units
+        const segment = segData.segment;
+        const direction = new THREE.Vector3(
+          segment.x2 - segment.x1,
+          segment.y2 - segment.y1,
+          segment.z2 - segment.z1
+        ).normalize();
+
+        // Move along segment direction with pulse
+        segData.mesh.position.x = basePositions[idx].x + (direction.x * propulsionAmount);
+        segData.mesh.position.y = basePositions[idx].y + (direction.y * propulsionAmount);
+        segData.mesh.position.z = basePositions[idx].z + (direction.z * propulsionAmount);
       }
     });
   }
@@ -897,26 +905,25 @@ function updateStats() {
   const distance = camera.position.length().toFixed(1);
   document.getElementById('cam-distance').textContent = distance;
 
-  // Update body growth
-  if (bodyGrowthProgress !== undefined) {
-    const bodyPercent = Math.round(bodyGrowthProgress * 100);
-    document.getElementById('body-growth').textContent = bodyPercent + '%';
-  }
-
-  // Update tentacles growth information
+  // Update tree growth information
   if (growthSegments && growthSegments.length > 0) {
+    // Calculate average growth progress
+    let totalProgress = 0;
     let growingCount = 0;
 
     segmentGrowthProgress.forEach((progress) => {
+      totalProgress += progress;
       if (progress > 0 && progress < 1) {
         growingCount++;
       }
     });
 
-    document.getElementById('tentacles-growing').textContent = growingCount + ' active';
+    const avgProgress = Math.round((totalProgress / growthSegments.length) * 100);
+    document.getElementById('body-growth').textContent = avgProgress + '%';
+    document.getElementById('tentacles-growing').textContent = growingCount + ' branches';
 
-    // Update pulse intensity based on overall activity
-    const pulseIntensity = Math.round(60 + (bodyGrowthProgress * 0.3) * 40);
+    // Update pulse intensity
+    const pulseIntensity = Math.round(50 + (avgProgress / 100) * 50);
     document.getElementById('pulse-intensity').textContent = pulseIntensity + '%';
   }
 }
