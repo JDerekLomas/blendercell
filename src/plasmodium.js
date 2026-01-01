@@ -29,6 +29,7 @@ let globalStreamingPhase = 0;
 let streamingPeriod = 3.0; // 3 seconds for visible demo (vs 60-120s in nature)
 let currentFlowDirection = 1; // 1 = outward, -1 = inward
 let veinMeshes = []; // Store vein meshes for pulsing animation
+let veinPaths = []; // Store vein path data for mitochondrial positioning
 
 // ============================================
 // INITIALIZATION
@@ -271,50 +272,74 @@ function createNuclei() {
 
 function createMitochondria() {
   mitochondriaGroup = new THREE.Group();
-  const mitochondriaCount = 800;
+  const mitochondriaCount = 1200; // Increased for branch coverage
 
-  const mitoGeometry = new THREE.BoxGeometry(0.08, 0.15, 0.08);
+  const mitoGeometry = new THREE.SphereGeometry(0.08, 6, 6);
   const mitoMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xe74c3c, // Red
-    emissive: 0xe74c3c,
-    emissiveIntensity: 0.2,
-    roughness: 0.6,
-    metalness: 0.1,
+    color: 0xff6b35, // Bright orange-red (more visible)
+    emissive: 0xff6b35,
+    emissiveIntensity: 0.3,
+    roughness: 0.5,
+    metalness: 0.0,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.7,
   });
 
-  // Distribute mitochondria randomly throughout
-  for (let i = 0; i < mitochondriaCount; i++) {
-    const mito = new THREE.Mesh(mitoGeometry, mitoMaterial.clone());
+  // Distribute mitochondria ALONG vein paths (branch-like)
+  let mitoIndex = 0;
 
-    const angle1 = Math.random() * Math.PI * 2;
-    const angle2 = Math.random() * Math.PI;
-    const radius = Math.random() * 7.5;
+  veinPaths.forEach((veinPath, pathIndex) => {
+    // Calculate mitochondria per path based on path length
+    const mitosPerPath = Math.ceil(mitochondriaCount / veinPaths.length);
 
-    const x = radius * Math.cos(angle1) * Math.sin(angle2);
-    const y = radius * Math.sin(angle1) * Math.sin(angle2);
-    const z = radius * Math.cos(angle2);
+    for (let i = 0; i < mitosPerPath && mitoIndex < mitochondriaCount; i++) {
+      const mito = new THREE.Mesh(mitoGeometry, mitoMaterial.clone());
 
-    mito.position.set(x, y, z);
-    mito.rotation.set(
-      Math.random() * Math.PI,
-      Math.random() * Math.PI,
-      Math.random() * Math.PI
-    );
+      // Position along the vein path
+      const pathProgress = i / mitosPerPath; // 0 to 1 along path
 
-    // Animation parameters
-    mito.userData.floatSpeed = 0.3 + Math.random() * 0.7;
-    mito.userData.floatPhase = Math.random() * Math.PI * 2;
-    mito.userData.basePosition = { x, y, z };
+      // Get position from vein curve
+      const pathIndex2 = Math.min(
+        Math.floor(pathProgress * (veinPath.length - 1)),
+        veinPath.length - 1
+      );
+      const basePoint = veinPath[pathIndex2];
 
-    mitochondriaGroup.add(mito);
-  }
+      // Add small offset perpendicular to vein
+      const offsetAngle = Math.random() * Math.PI * 2;
+      const offsetDist = 0.15 + Math.random() * 0.1;
+      const offset = new THREE.Vector3(
+        Math.cos(offsetAngle) * offsetDist,
+        Math.sin(offsetAngle) * offsetDist * 0.5,
+        (Math.random() - 0.5) * 0.2
+      );
+
+      const position = basePoint.clone().add(offset);
+      mito.position.copy(position);
+
+      // Slight rotation
+      mito.rotation.set(
+        Math.random() * Math.PI * 0.5,
+        Math.random() * Math.PI * 0.5,
+        Math.random() * Math.PI * 0.5
+      );
+
+      // Store animation parameters
+      mito.userData.pathProgress = pathProgress; // 0-1 position on vein
+      mito.userData.pathIndex = pathIndex; // which vein
+      mito.userData.basePosition = position.clone();
+      mito.userData.pulsePhase = Math.random() * Math.PI * 2;
+      mito.userData.pulseAmplitude = 0.08 + Math.random() * 0.06;
+
+      mitochondriaGroup.add(mito);
+      mitoIndex++;
+    }
+  });
 
   plasmodiumGroup.add(mitochondriaGroup);
 
   // Update UI
-  document.getElementById('mito-count').textContent = mitochondriaCount;
+  document.getElementById('mito-count').textContent = mitoIndex;
 }
 
 // ============================================
@@ -361,6 +386,9 @@ function createCytoplasmaticNetwork() {
       mainPoints.push(currentPos.clone());
     }
 
+    // Store vein path for mitochondrial positioning
+    veinPaths.push(mainPoints);
+
     // Create tube geometry
     const curve = new THREE.CatmullRomCurve3(mainPoints);
     const tubeGeometry = new THREE.TubeGeometry(curve, 8, 0.15, 6, false);
@@ -395,6 +423,9 @@ function createCytoplasmaticNetwork() {
           )
         );
       }
+
+      // Store secondary branch path
+      veinPaths.push(branchPoints);
 
       const branchCurve = new THREE.CatmullRomCurve3(branchPoints);
       const branchGeometry = new THREE.TubeGeometry(branchCurve, 6, 0.08, 5, false);
@@ -485,25 +516,38 @@ function animate() {
     });
   }
 
-  // Animate mitochondria - gentle drifting
+  // Animate mitochondria - pulsing with protoplasmic streaming (like real Physarum)
   if (mitochondriaGroup) {
     mitochondriaGroup.children.forEach((mito) => {
       const basePos = mito.userData.basePosition;
-      const driftAmount = 0.2;
 
-      mito.position.x =
-        basePos.x +
-        Math.sin(time * mito.userData.floatSpeed + mito.userData.floatPhase) * driftAmount;
-      mito.position.y =
-        basePos.y +
-        Math.cos(time * mito.userData.floatSpeed * 0.7 + mito.userData.floatPhase) * driftAmount;
-      mito.position.z =
-        basePos.z +
-        Math.sin(time * mito.userData.floatSpeed * 1.3 + mito.userData.floatPhase) * driftAmount;
+      // Pulsing scale synchronized with streaming phase (mimics ectoplasm wall thickening/thinning)
+      const pulseScale = 1.0 + Math.sin(globalStreamingPhase * Math.PI + mito.userData.pulsePhase) * 0.25;
+      mito.scale.set(pulseScale, pulseScale, pulseScale);
 
-      // Gentle rotation
-      mito.rotation.x += 0.002;
-      mito.rotation.y += 0.003;
+      // Opacity changes with flow direction (brighter during forward flow, dimmer during backward)
+      const baseOpacity = 0.6;
+      const flowIntensity = Math.abs(globalStreamingPhase);
+      const directionBias = currentFlowDirection > 0 ? 0.1 : -0.1;
+      mito.material.opacity = baseOpacity + (flowIntensity * 0.3) + directionBias;
+
+      // Emissive intensity increases with flow intensity (brightens during active streaming)
+      mito.material.emissiveIntensity = 0.2 + flowIntensity * 0.4;
+
+      // Subtle oscillating position within the local flow field (following stream)
+      const streamOffset = Math.sin(globalStreamingPhase * Math.PI * 2) * 0.12;
+      const angle = mito.userData.pathIndex * (Math.PI * 2 / veinPaths.length);
+      const offsetX = Math.cos(angle) * streamOffset;
+      const offsetY = Math.sin(angle) * streamOffset * 0.5;
+
+      mito.position.x = basePos.x + offsetX;
+      mito.position.y = basePos.y + offsetY;
+      mito.position.z = basePos.z + Math.sin(time * 0.5 + mito.userData.pulsePhase) * 0.08;
+
+      // Gentle continuous rotation
+      mito.rotation.x += 0.001 * (1 + flowIntensity);
+      mito.rotation.y += 0.002 * (1 + flowIntensity);
+      mito.rotation.z += 0.0015 * (1 + flowIntensity);
     });
   }
 
