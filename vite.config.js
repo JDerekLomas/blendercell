@@ -15,6 +15,7 @@ export default defineConfig({
         neuron: resolve(__dirname, 'neuron.html'),
         blenderTest: resolve(__dirname, 'blender-test.html'),
         plasmodium: resolve(__dirname, 'plasmodium.html'),
+        rod: resolve(__dirname, 'rod.html'),
       },
     },
   },
