@@ -1494,15 +1494,32 @@ function toggleLight() {
 // ============================================
 
 function createRetinalEnvironment() {
-  // 1. Light Rays from Below — teaches inverted retina (light comes from ganglion side)
+  // 0. Actual light source from below — warm directional light simulating
+  //    light entering from the ganglion cell side (inverted retina)
+  const retinalLight = new THREE.DirectionalLight(0xfff0d4, 0);
+  retinalLight.position.set(0, -30, 5); // from below
+  retinalLight.target.position.set(0, 10, 0); // aimed up at the cell
+  scene.add(retinalLight);
+  scene.add(retinalLight.target);
+  envMeshes.push({ mesh: retinalLight, targetOpacity: 1.8, isLight: true });
+
+  // Warm point light below to illuminate the lower retinal layers
+  const belowGlow = new THREE.PointLight(0xffe8c0, 0, 50);
+  belowGlow.position.set(0, -22, 0);
+  scene.add(belowGlow);
+  envMeshes.push({ mesh: belowGlow, targetOpacity: 1.2, isLight: true });
+
+  // 1. Light Rays from Below — visual beams showing light traveling up
+  //    from ganglion side through retinal layers toward photoreceptors
+  //    Rays span from Y=-25 (below ganglion layer) up through the cell
   const rayPositions = [
-    { x: -1.5, z: 0.5, r: 0.35, h: 35, opacity: 0.08 },
-    { x: 1.2, z: -0.8, r: 0.4, h: 38, opacity: 0.07 },
-    { x: 0.3, z: 1.5, r: 0.3, h: 32, opacity: 0.1 },
-    { x: -0.8, z: -1.2, r: 0.5, h: 36, opacity: 0.06 },
+    { x: -1.5, z: 0.5, r: 0.35, h: 50, opacity: 0.08 },
+    { x: 1.2, z: -0.8, r: 0.4, h: 55, opacity: 0.07 },
+    { x: 0.3, z: 1.5, r: 0.3, h: 45, opacity: 0.1 },
+    { x: -0.8, z: -1.2, r: 0.5, h: 52, opacity: 0.06 },
   ];
   for (const ray of rayPositions) {
-    const geo = new THREE.CylinderGeometry(ray.r, ray.r, ray.h, 8, 1, true);
+    const geo = new THREE.CylinderGeometry(ray.r * 0.5, ray.r, ray.h, 8, 1, true);
     const mat = new THREE.MeshBasicMaterial({
       color: 0xfff8e1,
       transparent: true,
@@ -1512,7 +1529,8 @@ function createRetinalEnvironment() {
       side: THREE.DoubleSide,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(ray.x, -18 + ray.h / 2 - 17, ray.z);
+    // Center each ray so it spans from well below ganglion layer up toward outer segment
+    mesh.position.set(ray.x, -25 + ray.h / 2, ray.z);
     scene.add(mesh);
     envMeshes.push({ mesh, targetOpacity: ray.opacity });
   }
@@ -1576,7 +1594,7 @@ function createRetinalEnvironment() {
       opacity: 0,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(offset.x, -0.5 - height / 2, offset.z);
+    mesh.position.set(offset.x, (-20 + -0.5) / 2, offset.z); // center between GCL and OLM
     scene.add(mesh);
     envMeshes.push({ mesh, targetOpacity: 0.12 });
   }
@@ -1623,12 +1641,16 @@ function updateRetinalEnvironment(time) {
   if (envMeshes.length === 0) return;
   const elapsed = time - lightSwitchTime;
   const duration = 1.2;
-  if (elapsed > duration + 0.1 && lightOn) return; // already fully on
-  if (elapsed > duration + 0.1 && !lightOn) return; // already fully off
+  if (elapsed > duration + 0.1) return; // transition complete
   const t = Math.min(elapsed / duration, 1.0);
   const eased = t * t * (3 - 2 * t); // smoothstep
+  const fade = lightOn ? eased : (1 - eased);
   for (const item of envMeshes) {
-    item.mesh.material.opacity = item.targetOpacity * (lightOn ? eased : (1 - eased));
+    if (item.isLight) {
+      item.mesh.intensity = item.targetOpacity * fade;
+    } else {
+      item.mesh.material.opacity = item.targetOpacity * fade;
+    }
   }
 }
 
