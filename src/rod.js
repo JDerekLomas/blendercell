@@ -108,24 +108,24 @@ const INFO_CONTENT = {
 function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(COLORS.BACKGROUND);
-  scene.fog = new THREE.FogExp2(COLORS.BACKGROUND, 0.008);
+  scene.fog = new THREE.FogExp2(COLORS.BACKGROUND, 0.003);
 
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(8, 15, 20);
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(12, 14, 30);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.8;
   document.getElementById('canvas-container').appendChild(renderer.domElement);
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
-  controls.minDistance = 8;
-  controls.maxDistance = 60;
-  controls.target.set(0, 10, 0);
+  controls.minDistance = 10;
+  controls.maxDistance = 70;
+  controls.target.set(0, 14, 0);
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.3;
 
@@ -140,31 +140,41 @@ function init() {
 // ============================================
 
 function setupLighting() {
-  const ambient = new THREE.AmbientLight(0x1a103a, 0.6);
+  const ambient = new THREE.AmbientLight(0x443366, 1.2);
   scene.add(ambient);
 
   // Cool directional key light
-  const keyLight = new THREE.DirectionalLight(0xc8d0ff, 1.0);
-  keyLight.position.set(10, 30, 10);
+  const keyLight = new THREE.DirectionalLight(0xc8d0ff, 2.0);
+  keyLight.position.set(10, 35, 15);
   scene.add(keyLight);
 
+  // Second directional from other side
+  const fillLight = new THREE.DirectionalLight(0x9980cc, 0.8);
+  fillLight.position.set(-10, 10, -10);
+  scene.add(fillLight);
+
   // Purple fill near outer segment
-  const purpleFill = new THREE.PointLight(0x7b2d8e, 0.8, 40);
-  purpleFill.position.set(-3, 20, 3);
+  const purpleFill = new THREE.PointLight(0x9b4dca, 1.5, 60);
+  purpleFill.position.set(-4, 26, 5);
   scene.add(purpleFill);
 
+  // Second purple fill for lower outer segment
+  const purpleFill2 = new THREE.PointLight(0x7b2d8e, 1.0, 40);
+  purpleFill2.position.set(4, 18, 4);
+  scene.add(purpleFill2);
+
   // Warm accent from below (ellipsoid glow)
-  const warmAccent = new THREE.PointLight(0xd97706, 0.5, 20);
-  warmAccent.position.set(0, -5, 0);
+  const warmAccent = new THREE.PointLight(0xd97706, 1.0, 30);
+  warmAccent.position.set(2, 5, 3);
   scene.add(warmAccent);
 
   // Teal accent at synaptic terminal
-  const tealAccent = new THREE.PointLight(0x14b8a6, 0.4, 15);
-  tealAccent.position.set(0, -18, 2);
+  const tealAccent = new THREE.PointLight(0x14b8a6, 0.8, 25);
+  tealAccent.position.set(-2, -10, 3);
   scene.add(tealAccent);
 
   // Hemisphere light
-  const hemiLight = new THREE.HemisphereLight(0x4a1a6b, 0x020208, 0.4);
+  const hemiLight = new THREE.HemisphereLight(0x6644aa, 0x112233, 0.8);
   scene.add(hemiLight);
 }
 
@@ -207,8 +217,10 @@ function createOuterSegment() {
   const memGeo = new THREE.CylinderGeometry(OUTER_SEGMENT_RADIUS, OUTER_SEGMENT_RADIUS, OUTER_SEGMENT_HEIGHT, 24, 1, true);
   const memMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.OUTER_MEMBRANE,
+    emissive: 0x2a0d3d,
+    emissiveIntensity: 0.2,
     transparent: true,
-    opacity: 0.1,
+    opacity: 0.2,
     roughness: 0.2,
     clearcoat: 0.5,
     side: THREE.DoubleSide,
@@ -222,10 +234,18 @@ function createOuterSegment() {
 
   // Top cap
   const capGeo = new THREE.CircleGeometry(OUTER_SEGMENT_RADIUS, 24);
-  const cap = new THREE.Mesh(capGeo, memMat.clone());
+  const capMat = memMat.clone();
+  capMat.opacity = 0.3;
+  const cap = new THREE.Mesh(capGeo, capMat);
   cap.rotation.x = -Math.PI / 2;
   cap.position.y = 14 + OUTER_SEGMENT_HEIGHT;
   cellGroup.add(cap);
+
+  // Bottom cap
+  const bottomCap = new THREE.Mesh(capGeo.clone(), capMat.clone());
+  bottomCap.rotation.x = Math.PI / 2;
+  bottomCap.position.y = 14;
+  cellGroup.add(bottomCap);
 
   organelleGroups['OuterSegment'] = { meshes, material: memMat };
 }
@@ -240,11 +260,11 @@ function createDiscStack() {
   const discGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.06, 20);
   const discMat = new THREE.MeshStandardMaterial({
     color: COLORS.DISC,
-    emissive: COLORS.DISC_EMISSIVE,
-    emissiveIntensity: 0.15,
-    roughness: 0.4,
+    emissive: COLORS.DISC,
+    emissiveIntensity: 0.25,
+    roughness: 0.3,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.9,
   });
 
   discInstancedMesh = new THREE.InstancedMesh(discGeo, discMat, DISC_COUNT);
@@ -334,8 +354,10 @@ function createConnectingCilium() {
   const sheathGeo = new THREE.CylinderGeometry(0.15, 0.15, 2, 16, 1, true);
   const sheathMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.CILIUM,
+    emissive: COLORS.CILIUM,
+    emissiveIntensity: 0.15,
     transparent: true,
-    opacity: 0.08,
+    opacity: 0.2,
     side: THREE.DoubleSide,
     depthWrite: false
   });
@@ -359,8 +381,10 @@ function createEllipsoid() {
   const memGeo = new THREE.CylinderGeometry(1.5, 1.3, 7, 20, 1, true);
   const memMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.ELLIPSOID_MEMBRANE,
+    emissive: 0x553300,
+    emissiveIntensity: 0.15,
     transparent: true,
-    opacity: 0.08,
+    opacity: 0.18,
     roughness: 0.2,
     side: THREE.DoubleSide,
     depthWrite: false
@@ -373,10 +397,10 @@ function createEllipsoid() {
   const mitoMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.MITOCHONDRIA,
     emissive: COLORS.MITOCHONDRIA,
-    emissiveIntensity: 0.12,
+    emissiveIntensity: 0.25,
     transparent: true,
-    opacity: 0.7,
-    roughness: 0.5,
+    opacity: 0.85,
+    roughness: 0.4,
   });
 
   const mitoCount = 80;
@@ -429,8 +453,10 @@ function createMyoid() {
   const memGeo = new THREE.CylinderGeometry(1.3, 1.1, 6, 20, 1, true);
   const memMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.MYOID_MEMBRANE,
+    emissive: 0x033d4a,
+    emissiveIntensity: 0.15,
     transparent: true,
-    opacity: 0.08,
+    opacity: 0.18,
     roughness: 0.2,
     side: THREE.DoubleSide,
     depthWrite: false
@@ -618,17 +644,19 @@ function createNuclearRegion() {
   nucleusGroup.add(nucleolus);
 
   // Nuclear membrane
-  const memGeo = new THREE.CylinderGeometry(1.1, 1.1, 6, 20, 1, true);
-  const memMat = new THREE.MeshPhysicalMaterial({
+  const nucMemGeo = new THREE.CylinderGeometry(1.1, 1.1, 6, 20, 1, true);
+  const nucMemMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.NUCLEUS,
+    emissive: 0x1a1550,
+    emissiveIntensity: 0.2,
     transparent: true,
-    opacity: 0.06,
+    opacity: 0.15,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
-  const mem = new THREE.Mesh(memGeo, memMat);
-  mem.position.y = -4;
-  cellGroup.add(mem);
+  const nucMem = new THREE.Mesh(nucMemGeo, nucMemMat);
+  nucMem.position.y = -4;
+  cellGroup.add(nucMem);
 
   cellGroup.add(nucleusGroup);
   organelleGroups['Nucleus'] = { meshes, material: envelopeMat };
@@ -648,8 +676,10 @@ function createSynapticTerminal() {
   spheruleGeo.scale(1, 0.8, 1);
   const spheruleMat = new THREE.MeshPhysicalMaterial({
     color: COLORS.SYNAPTIC_TERMINAL,
+    emissive: 0x0a5c52,
+    emissiveIntensity: 0.2,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.25,
     roughness: 0.3,
     side: THREE.DoubleSide,
     depthWrite: false,
@@ -743,9 +773,11 @@ function createSynapticTerminal() {
 
 function createMembraneTransitions() {
   const transitionMat = new THREE.MeshPhysicalMaterial({
-    color: 0x3d1647,
+    color: 0x5a2870,
+    emissive: 0x2a1040,
+    emissiveIntensity: 0.2,
     transparent: true,
-    opacity: 0.06,
+    opacity: 0.2,
     roughness: 0.3,
     side: THREE.DoubleSide,
     depthWrite: false,
@@ -801,27 +833,43 @@ function firePhoton() {
 
   // Create photon mesh
   if (!photonMesh) {
-    const photonGeo = new THREE.SphereGeometry(0.15, 12, 8);
+    const photonGeo = new THREE.SphereGeometry(0.3, 16, 12);
     const photonMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
-      emissiveIntensity: 2.0,
+      emissiveIntensity: 3.0,
       transparent: true,
       opacity: 1.0,
     });
     photonMesh = new THREE.Mesh(photonGeo, photonMat);
 
-    // Glow halo
-    const haloGeo = new THREE.SphereGeometry(0.4, 12, 8);
+    // Inner glow halo
+    const haloGeo = new THREE.SphereGeometry(0.7, 16, 12);
     const haloMat = new THREE.MeshStandardMaterial({
       color: 0xc4b5fd,
       emissive: 0xc4b5fd,
-      emissiveIntensity: 1.0,
+      emissiveIntensity: 2.0,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.4,
     });
     const halo = new THREE.Mesh(haloGeo, haloMat);
     photonMesh.add(halo);
+
+    // Outer glow
+    const outerGlowGeo = new THREE.SphereGeometry(1.2, 12, 8);
+    const outerGlowMat = new THREE.MeshStandardMaterial({
+      color: 0x8b5cf6,
+      emissive: 0x8b5cf6,
+      emissiveIntensity: 1.0,
+      transparent: true,
+      opacity: 0.15,
+    });
+    const outerGlow = new THREE.Mesh(outerGlowGeo, outerGlowMat);
+    photonMesh.add(outerGlow);
+
+    // Moving point light that follows the photon
+    const photonLight = new THREE.PointLight(0xc4b5fd, 3.0, 10);
+    photonMesh.add(photonLight);
 
     cellGroup.add(photonMesh);
   }
@@ -853,8 +901,8 @@ function updatePhoton(time) {
     const targetY = 14.5 + photonTargetDisc * spacing;
     photonMesh.position.y = startY + (targetY - startY) * t;
 
-    // Slight shimmer
-    photonMesh.material.emissiveIntensity = 2.0 + Math.sin(elapsed * 20) * 0.5;
+    // Dramatic shimmer
+    photonMesh.material.emissiveIntensity = 3.0 + Math.sin(elapsed * 20) * 1.0;
   } else {
     // Hit the disc — start cascade
     photonMesh.visible = false;
