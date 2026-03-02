@@ -146,11 +146,11 @@
       </div>
 
       <div class="flex gap-2">
-        <button id="fire-photon-btn" class="group bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg glow-button transition-all duration-300 flex items-center gap-2">
-          <svg class="w-4 h-4 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2L9 9H2l5.5 4.5L5 21l7-5 7 5-2.5-7.5L22 9h-7L12 2z"/>
+        <button id="light-switch-btn" class="group bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg glow-button transition-all duration-300 flex items-center gap-2">
+          <svg id="light-icon" class="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="currentColor"/>
           </svg>
-          Fire Photon
+          <span id="light-label">Light OFF</span>
         </button>
         <a href="cells.html" class="bg-slate-900/80 border border-cyan-500/50 text-cyan-300 px-4 py-2 rounded-full text-sm hover:bg-cyan-600 hover:text-white transition-colors shadow-lg flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -405,9 +405,9 @@
       window.dispatchEvent(new CustomEvent('zoom', { detail: 'out' }));
     });
 
-    // Fire Photon button
-    document.getElementById('fire-photon-btn')?.addEventListener('click', () => {
-      window.dispatchEvent(new CustomEvent('firePhoton'));
+    // Light switch
+    document.getElementById('light-switch-btn')?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('toggleLight'));
     });
   </script>
   <script type="module" src="/src/rod.js"></script>

@@ -35,6 +35,12 @@ let cellState = 'dark';       // 'dark' | 'inhibiting' | 'recovering'
 let stateStartTime = 0;
 let recoveryTimeout = null;
 
+// Light switch
+let lightOn = false;
+let lightSwitchTime = 0;
+const BG_DARK = new THREE.Color(0x020208);
+const BG_LIGHT = new THREE.Color(0x1a1525); // dim purple-grey, not blinding
+
 // Neighboring cells
 let bipolarCellMesh = null;
 let bipolarDendrite = null;
@@ -1161,6 +1167,12 @@ function updatePhoton(time) {
 }
 
 function startCascade(originDisc) {
+  // Clear any pending recovery
+  if (recoveryTimeout) {
+    clearTimeout(recoveryTimeout);
+    recoveryTimeout = null;
+  }
+
   cascadeActive = true;
   cascadeStartTime = clock.getElapsedTime();
   cascadeOriginDisc = originDisc;
@@ -1190,18 +1202,25 @@ function updateCascade(time) {
     discInstancedMesh.instanceColor.needsUpdate = true;
     cascadeActive = false;
 
-    // Begin recovery after 2s
-    if (recoveryTimeout) clearTimeout(recoveryTimeout);
-    recoveryTimeout = setTimeout(() => {
-      cellState = 'recovering';
+    if (lightOn) {
+      // Light still on — stay inhibited, next photon will come via auto-fire
+      cellState = 'inhibiting';
       stateStartTime = clock.getElapsedTime();
-
-      // Full dark state restored after another 2s
+    } else {
+      // Light off — begin recovery after 2s
+      if (recoveryTimeout) clearTimeout(recoveryTimeout);
       recoveryTimeout = setTimeout(() => {
-        cellState = 'dark';
+        cellState = 'recovering';
         stateStartTime = clock.getElapsedTime();
+
+        // Full dark state restored after another 2s
+        recoveryTimeout = setTimeout(() => {
+          cellState = 'dark';
+          stateStartTime = clock.getElapsedTime();
+          recoveryTimeout = null;
+        }, 2000);
       }, 2000);
-    }, 2000);
+    }
 
     return;
   }
@@ -1289,7 +1308,10 @@ function setupEventListeners() {
 
   document.getElementById('close-popup')?.addEventListener('click', hidePopup);
 
-  // Fire Photon button
+  // Light switch
+  window.addEventListener('toggleLight', () => toggleLight());
+
+  // Fire Photon (legacy / direct call)
   window.addEventListener('firePhoton', () => firePhoton());
 
   // Zoom buttons
@@ -1418,6 +1440,73 @@ function updateScaleBar() {
 }
 
 // ============================================
+// LIGHT SWITCH
+// ============================================
+
+function toggleLight() {
+  lightOn = !lightOn;
+  lightSwitchTime = clock.getElapsedTime();
+
+  // Update button UI
+  const btn = document.getElementById('light-switch-btn');
+  const icon = document.getElementById('light-icon');
+  const label = document.getElementById('light-label');
+  if (btn && icon && label) {
+    if (lightOn) {
+      btn.classList.remove('from-violet-600', 'to-purple-600', 'hover:from-violet-500', 'hover:to-purple-500');
+      btn.classList.add('from-amber-500', 'to-yellow-500', 'hover:from-amber-400', 'hover:to-yellow-400');
+      icon.innerHTML = '<circle cx="12" cy="12" r="5" fill="currentColor"/><g stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g>';
+      label.textContent = 'Light ON';
+    } else {
+      btn.classList.remove('from-amber-500', 'to-yellow-500', 'hover:from-amber-400', 'hover:to-yellow-400');
+      btn.classList.add('from-violet-600', 'to-purple-600', 'hover:from-violet-500', 'hover:to-purple-500');
+      icon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" fill="currentColor"/>';
+      label.textContent = 'Light OFF';
+    }
+  }
+
+  if (lightOn) {
+    // Light turned on → fire photon immediately
+    if (!photonActive && !cascadeActive) {
+      firePhoton();
+    }
+  } else {
+    // Light turned off → begin recovery if inhibiting
+    if (cellState === 'inhibiting') {
+      cellState = 'recovering';
+      stateStartTime = clock.getElapsedTime();
+      if (recoveryTimeout) clearTimeout(recoveryTimeout);
+      recoveryTimeout = setTimeout(() => {
+        cellState = 'dark';
+        stateStartTime = clock.getElapsedTime();
+        recoveryTimeout = null;
+      }, 2000);
+    }
+  }
+}
+
+function updateBackground(time) {
+  if (!scene) return;
+
+  const elapsed = time - lightSwitchTime;
+  const transitionDuration = 1.0;
+  if (elapsed > transitionDuration + 0.1) return; // no work needed after transition
+
+  const t = Math.min(elapsed / transitionDuration, 1.0);
+  const eased = t * t * (3 - 2 * t); // smoothstep
+
+  if (lightOn) {
+    scene.background.copy(BG_DARK).lerp(BG_LIGHT, eased);
+    scene.fog.color.copy(BG_DARK).lerp(BG_LIGHT, eased);
+    renderer.toneMappingExposure = 1.8 + eased * 1.2;
+  } else {
+    scene.background.copy(BG_LIGHT).lerp(BG_DARK, eased);
+    scene.fog.color.copy(BG_LIGHT).lerp(BG_DARK, eased);
+    renderer.toneMappingExposure = 3.0 - eased * 1.2;
+  }
+}
+
+// ============================================
 // ANIMATION
 // ============================================
 
@@ -1433,15 +1522,15 @@ function animate() {
   updateCascade(time);
   updateDiscRecovery(time);
 
-  // Glutamate and status
+  // Glutamate, status, background
   updateGlutamate(time, delta);
   updateStatusUI();
+  updateBackground(time);
 
-  // Auto-fire photon every ~12 seconds (gives 6-7s of visible dark state)
-  if (time - lastAutoPhotonTime > 12 && !photonActive && !cascadeActive) {
-    // Only auto-fire if intro modal is hidden and in dark state
+  // When light is ON, keep firing photons periodically
+  if (lightOn && time - lastAutoPhotonTime > 5 && !photonActive && !cascadeActive) {
     const introModal = document.getElementById('intro-modal');
-    if (introModal && introModal.classList.contains('hidden') && cellState === 'dark') {
+    if (introModal && introModal.classList.contains('hidden')) {
       firePhoton();
       lastAutoPhotonTime = time;
     }
