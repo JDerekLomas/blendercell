@@ -173,13 +173,19 @@
         </button>
       </div>
 
-      <!-- Center: Hint -->
-      <div id="hint-container" class="pointer-events-none absolute left-1/2 bottom-0 transform -translate-x-1/2 transition-all duration-500">
-        <div class="bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl animate-pulse">
-          <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
-          </svg>
-          <span class="text-sm font-medium tracking-wide">Click organelles to learn more</span>
+      <!-- Center: Signal Status + Hint -->
+      <div class="pointer-events-none absolute left-1/2 bottom-0 transform -translate-x-1/2 flex flex-col items-center gap-2">
+        <div id="signal-status" class="bg-slate-900/80 backdrop-blur-md border border-violet-500/30 rounded-full px-4 py-2 flex items-center gap-2">
+          <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400" style="transition: background-color 0.3s;"></div>
+          <span id="status-text" class="text-xs font-medium text-slate-300">Dark: Channels open — Glutamate releasing</span>
+        </div>
+        <div id="hint-container" class="transition-all duration-500">
+          <div class="bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl animate-pulse">
+            <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+            </svg>
+            <span class="text-sm font-medium tracking-wide">Click organelles to learn more</span>
+          </div>
         </div>
       </div>
 

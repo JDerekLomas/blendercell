@@ -8,6 +8,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, camera, renderer, controls;
 let cellGroup;
 let clock = new THREE.Clock();
+let lastFrameTime = 0;
 
 // Interaction state
 let activeFeature = null;
@@ -28,6 +29,20 @@ let cascadeOriginDisc = 0;
 let vesicles = [];
 let ribbonVesicleAnims = [];
 let lastAutoPhotonTime = 0;
+
+// Cell signaling state machine
+let cellState = 'dark';       // 'dark' | 'inhibiting' | 'recovering'
+let stateStartTime = 0;
+let recoveryTimeout = null;
+
+// Neighboring cells
+let bipolarCellMesh = null;
+let bipolarDendrite = null;
+
+// Glutamate particle system
+let glutamateInstanced = null;
+let glutamatePositions = [];  // {y, vy, opacity, active}
+const GLUTAMATE_COUNT = 30;
 
 const DISC_COUNT = 150;
 const OUTER_SEGMENT_HEIGHT = 25;
@@ -202,6 +217,8 @@ function createRodCell() {
   createNuclearRegion();
   createSynapticTerminal();
   createMembraneTransitions();
+  createNeighboringCells();
+  createGlutamateSystem();
 
   scene.add(cellGroup);
 }
@@ -825,6 +842,231 @@ function createMembraneTransitions() {
 }
 
 // ============================================
+// NEIGHBORING CELLS
+// ============================================
+
+function createNeighboringCells() {
+  // RPE cell (top, above outer segment)
+  const rpeGroup = new THREE.Group();
+  const rpeMat = new THREE.MeshStandardMaterial({
+    color: 0x2a1a0a,
+    transparent: true,
+    opacity: 0.4,
+    roughness: 0.8,
+  });
+  const rpeSlab = new THREE.Mesh(
+    new THREE.BoxGeometry(5, 0.4, 5),
+    rpeMat
+  );
+  rpeSlab.position.y = 40;
+  rpeGroup.add(rpeSlab);
+
+  // Melanin granules inside RPE
+  const melaninMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0604,
+    roughness: 0.9,
+  });
+  for (let i = 0; i < 10; i++) {
+    const granule = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08 + Math.random() * 0.06, 6, 4),
+      melaninMat
+    );
+    granule.position.set(
+      (Math.random() - 0.5) * 4,
+      40 + (Math.random() - 0.5) * 0.2,
+      (Math.random() - 0.5) * 4
+    );
+    rpeGroup.add(granule);
+  }
+  cellGroup.add(rpeGroup);
+
+  // Adjacent rods (ghostly outlines)
+  const ghostMat = new THREE.MeshStandardMaterial({
+    color: 0x6644aa,
+    transparent: true,
+    opacity: 0.1,
+    roughness: 0.5,
+    depthWrite: false,
+  });
+  for (const xOffset of [-3, 3]) {
+    const ghostRod = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.9, 0.9, 49, 12, 1, true),
+      ghostMat.clone()
+    );
+    ghostRod.material.opacity = 0.08 + Math.random() * 0.04;
+    ghostRod.position.set(xOffset, 14.5, 0); // center of span
+    cellGroup.add(ghostRod);
+  }
+
+  // Bipolar cell (below synapse)
+  const bipolarGroup = new THREE.Group();
+  const bipolarMat = new THREE.MeshStandardMaterial({
+    color: 0x7788aa,
+    emissive: 0x334455,
+    emissiveIntensity: 0.15,
+    transparent: true,
+    opacity: 0.5,
+    roughness: 0.4,
+  });
+
+  // Soma
+  bipolarCellMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.6, 12, 8),
+    bipolarMat
+  );
+  bipolarCellMesh.position.y = -12;
+  bipolarGroup.add(bipolarCellMesh);
+
+  // Dendrite reaching up into invagination
+  bipolarDendrite = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.04, 2.8, 6),
+    bipolarMat.clone()
+  );
+  bipolarDendrite.material.opacity = 0.4;
+  bipolarDendrite.position.y = -10.6; // spans from -12 to -9.2
+  bipolarGroup.add(bipolarDendrite);
+
+  cellGroup.add(bipolarGroup);
+}
+
+// ============================================
+// GLUTAMATE PARTICLE SYSTEM
+// ============================================
+
+function createGlutamateSystem() {
+  const geo = new THREE.SphereGeometry(0.04, 6, 4);
+  const mat = new THREE.MeshStandardMaterial({
+    color: COLORS.VESICLE,
+    emissive: COLORS.VESICLE,
+    emissiveIntensity: 0.4,
+    transparent: true,
+    opacity: 0.9,
+  });
+
+  glutamateInstanced = new THREE.InstancedMesh(geo, mat, GLUTAMATE_COUNT);
+  glutamateInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < GLUTAMATE_COUNT; i++) {
+    const y = -9.0 - Math.random() * 3.0; // spread between synapse and bipolar
+    const x = (Math.random() - 0.5) * 0.4;
+    const z = (Math.random() - 0.5) * 0.4;
+    matrix.setPosition(x, y, z);
+    glutamateInstanced.setMatrixAt(i, matrix);
+
+    glutamatePositions.push({
+      x, y, z,
+      vy: -(0.8 + Math.random() * 0.7), // downward velocity
+      opacity: 1.0,
+      active: true,
+    });
+  }
+
+  cellGroup.add(glutamateInstanced);
+}
+
+function updateGlutamate(time, delta) {
+  if (!glutamateInstanced) return;
+
+  const matrix = new THREE.Matrix4();
+  const stateElapsed = time - stateStartTime;
+
+  for (let i = 0; i < GLUTAMATE_COUNT; i++) {
+    const p = glutamatePositions[i];
+
+    if (cellState === 'dark') {
+      // Full stream: particles fall from synapse to bipolar
+      p.active = true;
+      p.opacity = 0.9;
+      p.y += p.vy * delta;
+      p.x += (Math.random() - 0.5) * 0.02; // slight lateral drift
+
+      // Recycle when past bipolar cell
+      if (p.y < -12.5) {
+        p.y = -9.0;
+        p.x = (Math.random() - 0.5) * 0.4;
+        p.z = (Math.random() - 0.5) * 0.4;
+      }
+    } else if (cellState === 'inhibiting') {
+      // Decelerate and fade
+      const fadeProgress = Math.min(stateElapsed / 0.5, 1.0);
+      const speedScale = 1.0 - fadeProgress;
+      p.opacity = Math.max(0, 0.9 * (1.0 - fadeProgress));
+      p.y += p.vy * delta * speedScale;
+
+      if (p.y < -12.5) {
+        p.y = -9.0;
+        p.active = false;
+      }
+    } else if (cellState === 'recovering') {
+      // Gradually resume
+      const resumeProgress = Math.min(stateElapsed / 1.5, 1.0);
+      p.active = true;
+      p.opacity = 0.9 * resumeProgress;
+      p.y += p.vy * delta * resumeProgress;
+
+      if (p.y < -12.5) {
+        p.y = -9.0;
+        p.x = (Math.random() - 0.5) * 0.4;
+        p.z = (Math.random() - 0.5) * 0.4;
+      }
+    }
+
+    // Update instance matrix
+    const scale = p.active ? Math.max(p.opacity, 0.01) : 0.001;
+    matrix.makeScale(scale, scale, scale);
+    matrix.setPosition(p.x, p.y, p.z);
+    glutamateInstanced.setMatrixAt(i, matrix);
+  }
+
+  glutamateInstanced.instanceMatrix.needsUpdate = true;
+
+  // Bipolar cell response
+  if (bipolarCellMesh) {
+    if (cellState === 'inhibiting' && stateElapsed > 0.4 && stateElapsed < 1.2) {
+      // Brief emissive flash when glutamate stops
+      const flashT = (stateElapsed - 0.4) / 0.8;
+      const flash = Math.sin(flashT * Math.PI);
+      bipolarCellMesh.material.emissiveIntensity = 0.15 + flash * 0.8;
+      bipolarCellMesh.material.emissive.setHex(0x88aaff);
+    } else {
+      bipolarCellMesh.material.emissiveIntensity = 0.15;
+      bipolarCellMesh.material.emissive.setHex(0x334455);
+    }
+  }
+}
+
+// ============================================
+// STATUS UI
+// ============================================
+
+function updateStatusUI() {
+  const dot = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  if (!dot || !text) return;
+
+  const time = clock.getElapsedTime();
+
+  if (cellState === 'dark') {
+    // Pulsing amber
+    const pulse = 0.7 + Math.sin(time * 3) * 0.3;
+    dot.style.backgroundColor = `rgba(251, 191, 36, ${pulse})`;
+    dot.style.boxShadow = `0 0 6px rgba(251, 191, 36, ${pulse * 0.5})`;
+    text.textContent = 'Dark: Channels open \u2014 Glutamate releasing';
+  } else if (cellState === 'inhibiting') {
+    dot.style.backgroundColor = 'rgb(96, 165, 250)';
+    dot.style.boxShadow = '0 0 6px rgba(96, 165, 250, 0.5)';
+    text.textContent = 'Light detected: Channels closing \u2014 Signal reduced';
+  } else if (cellState === 'recovering') {
+    const stateElapsed = time - stateStartTime;
+    const fadeIn = Math.min(stateElapsed / 1.5, 1.0);
+    dot.style.backgroundColor = `rgba(251, 191, 36, ${fadeIn})`;
+    dot.style.boxShadow = `0 0 6px rgba(251, 191, 36, ${fadeIn * 0.5})`;
+    text.textContent = 'Recovering: Dark current resuming...';
+  }
+}
+
+// ============================================
 // PHOTON ANIMATION
 // ============================================
 
@@ -915,6 +1157,10 @@ function startCascade(originDisc) {
   cascadeActive = true;
   cascadeStartTime = clock.getElapsedTime();
   cascadeOriginDisc = originDisc;
+
+  // Transition to inhibiting state
+  cellState = 'inhibiting';
+  stateStartTime = clock.getElapsedTime();
 }
 
 function updateCascade(time) {
@@ -924,22 +1170,37 @@ function updateCascade(time) {
   const cascadeDuration = 2.0;
   const spreadSpeed = 80; // discs per second
 
+  const baseColor = new THREE.Color(COLORS.DISC);
+  const darkColor = new THREE.Color(0x4a1a4a); // darkened disc (channels closed)
+
   if (elapsed > cascadeDuration) {
-    // Reset all disc colors
-    const baseColor = new THREE.Color(COLORS.DISC);
+    // Don't snap back — tint discs darker (channels closed)
     for (let i = 0; i < DISC_COUNT; i++) {
-      discColors[i * 3] = baseColor.r;
-      discColors[i * 3 + 1] = baseColor.g;
-      discColors[i * 3 + 2] = baseColor.b;
+      discColors[i * 3] = darkColor.r;
+      discColors[i * 3 + 1] = darkColor.g;
+      discColors[i * 3 + 2] = darkColor.b;
     }
     discInstancedMesh.instanceColor.needsUpdate = true;
     cascadeActive = false;
+
+    // Begin recovery after 2s
+    if (recoveryTimeout) clearTimeout(recoveryTimeout);
+    recoveryTimeout = setTimeout(() => {
+      cellState = 'recovering';
+      stateStartTime = clock.getElapsedTime();
+
+      // Full dark state restored after another 2s
+      recoveryTimeout = setTimeout(() => {
+        cellState = 'dark';
+        stateStartTime = clock.getElapsedTime();
+      }, 2000);
+    }, 2000);
+
     return;
   }
 
-  const baseColor = new THREE.Color(COLORS.DISC);
   const flashColor = new THREE.Color(0xffffff);
-  const waveColor = new THREE.Color(0xc4b5fd);
+  const waveColor = new THREE.Color(0x6b7280); // cool dark grey — "shutting down"
 
   const spreadRadius = elapsed * spreadSpeed;
 
@@ -951,7 +1212,7 @@ function updateCascade(time) {
       const intensity = Math.max(0, 1 - waveProgress * 2);
 
       if (dist === 0 && elapsed < 0.3) {
-        // Origin disc flashes white
+        // Origin disc flashes white (genuine photon absorption)
         const flashIntensity = 1 - elapsed / 0.3;
         const c = baseColor.clone().lerp(flashColor, flashIntensity);
         discColors[i * 3] = c.r;
@@ -963,9 +1224,11 @@ function updateCascade(time) {
         discColors[i * 3 + 1] = c.g;
         discColors[i * 3 + 2] = c.b;
       } else {
-        discColors[i * 3] = baseColor.r;
-        discColors[i * 3 + 1] = baseColor.g;
-        discColors[i * 3 + 2] = baseColor.b;
+        // Behind the wave — darken slightly
+        const c = baseColor.clone().lerp(darkColor, 0.3);
+        discColors[i * 3] = c.r;
+        discColors[i * 3 + 1] = c.g;
+        discColors[i * 3 + 2] = c.b;
       }
     } else {
       discColors[i * 3] = baseColor.r;
@@ -975,6 +1238,38 @@ function updateCascade(time) {
   }
 
   discInstancedMesh.instanceColor.needsUpdate = true;
+}
+
+// Gradually restore disc colors during recovery
+function updateDiscRecovery(time) {
+  if (!discInstancedMesh) return;
+  if (cellState !== 'recovering' && cellState !== 'dark') return;
+  if (cascadeActive) return;
+
+  const baseColor = new THREE.Color(COLORS.DISC);
+
+  if (cellState === 'recovering') {
+    const darkColor = new THREE.Color(0x4a1a4a);
+    const progress = Math.min((time - stateStartTime) / 2.0, 1.0);
+    const c = darkColor.clone().lerp(baseColor, progress);
+    for (let i = 0; i < DISC_COUNT; i++) {
+      discColors[i * 3] = c.r;
+      discColors[i * 3 + 1] = c.g;
+      discColors[i * 3 + 2] = c.b;
+    }
+    discInstancedMesh.instanceColor.needsUpdate = true;
+  } else if (cellState === 'dark') {
+    // Ensure discs are base color
+    const current = discColors[0];
+    if (Math.abs(current - baseColor.r) > 0.01) {
+      for (let i = 0; i < DISC_COUNT; i++) {
+        discColors[i * 3] = baseColor.r;
+        discColors[i * 3 + 1] = baseColor.g;
+        discColors[i * 3 + 2] = baseColor.b;
+      }
+      discInstancedMesh.instanceColor.needsUpdate = true;
+    }
+  }
 }
 
 // ============================================
@@ -1123,16 +1418,23 @@ function animate() {
   requestAnimationFrame(animate);
 
   const time = clock.getElapsedTime();
+  const delta = Math.min(time - lastFrameTime, 0.05); // cap delta to avoid jumps
+  lastFrameTime = time;
 
   // Photon animation
   updatePhoton(time);
   updateCascade(time);
+  updateDiscRecovery(time);
 
-  // Auto-fire photon every ~8 seconds
-  if (time - lastAutoPhotonTime > 8 && !photonActive && !cascadeActive) {
-    // Only auto-fire if intro modal is hidden
+  // Glutamate and status
+  updateGlutamate(time, delta);
+  updateStatusUI();
+
+  // Auto-fire photon every ~12 seconds (gives 6-7s of visible dark state)
+  if (time - lastAutoPhotonTime > 12 && !photonActive && !cascadeActive) {
+    // Only auto-fire if intro modal is hidden and in dark state
     const introModal = document.getElementById('intro-modal');
-    if (introModal && introModal.classList.contains('hidden')) {
+    if (introModal && introModal.classList.contains('hidden') && cellState === 'dark') {
       firePhoton();
       lastAutoPhotonTime = time;
     }
