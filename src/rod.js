@@ -39,7 +39,10 @@ let recoveryTimeout = null;
 let lightOn = false;
 let lightSwitchTime = 0;
 const BG_DARK = new THREE.Color(0x020208);
-const BG_LIGHT = new THREE.Color(0x1a1525); // dim purple-grey, not blinding
+const BG_LIGHT = new THREE.Color(0x1e1a30); // dim purple-grey, slightly warm
+
+// Retinal environment
+let envMeshes = [];  // [{mesh, targetOpacity}] — all env elements to fade
 
 // Neighboring cells
 let bipolarCellMesh = null;
@@ -225,6 +228,7 @@ function createRodCell() {
   createMembraneTransitions();
   createNeighboringCells();
   createGlutamateSystem();
+  createRetinalEnvironment();
 
   scene.add(cellGroup);
 }
@@ -1485,6 +1489,149 @@ function toggleLight() {
   }
 }
 
+// ============================================
+// RETINAL ENVIRONMENT
+// ============================================
+
+function createRetinalEnvironment() {
+  // 1. Light Rays from Below — teaches inverted retina (light comes from ganglion side)
+  const rayPositions = [
+    { x: -1.5, z: 0.5, r: 0.35, h: 35, opacity: 0.08 },
+    { x: 1.2, z: -0.8, r: 0.4, h: 38, opacity: 0.07 },
+    { x: 0.3, z: 1.5, r: 0.3, h: 32, opacity: 0.1 },
+    { x: -0.8, z: -1.2, r: 0.5, h: 36, opacity: 0.06 },
+  ];
+  for (const ray of rayPositions) {
+    const geo = new THREE.CylinderGeometry(ray.r, ray.r, ray.h, 8, 1, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xfff8e1,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(ray.x, -18 + ray.h / 2 - 17, ray.z);
+    scene.add(mesh);
+    envMeshes.push({ mesh, targetOpacity: ray.opacity });
+  }
+
+  // 2. Retinal Layer Bands — horizontal planes marking major layers
+  const layers = [
+    { name: 'Outer Limiting Membrane', y: -0.5, color: 0xd4a574, opacity: 0.08 },
+    { name: 'Outer Nuclear Layer', y: -4, color: 0x6b5b8a, opacity: 0.05 },
+    { name: 'Outer Plexiform Layer', y: -10, color: 0x5a8a7a, opacity: 0.06 },
+    { name: 'Inner Nuclear Layer', y: -14, color: 0x6b7b8a, opacity: 0.05 },
+    { name: 'Inner Plexiform Layer', y: -17, color: 0x8a7b6b, opacity: 0.05 },
+    { name: 'Ganglion Cell Layer', y: -20, color: 0x8a836b, opacity: 0.06 },
+  ];
+  for (const layer of layers) {
+    const geo = new THREE.PlaneGeometry(20, 20);
+    const mat = new THREE.MeshBasicMaterial({
+      color: layer.color,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = layer.y;
+    scene.add(mesh);
+    envMeshes.push({ mesh, targetOpacity: layer.opacity });
+  }
+
+  // 3. Choroidal Blood Vessels — curved tubes above RPE (choriocapillaris)
+  const vesselConfigs = [
+    { start: new THREE.Vector3(-8, 42, -2), mid1: new THREE.Vector3(-3, 43, 1), mid2: new THREE.Vector3(3, 41.5, -1), end: new THREE.Vector3(8, 44, 2), r: 0.3 },
+    { start: new THREE.Vector3(-6, 44, 3), mid1: new THREE.Vector3(-1, 42, 2), mid2: new THREE.Vector3(4, 43.5, 0), end: new THREE.Vector3(9, 42, -2), r: 0.25 },
+    { start: new THREE.Vector3(-9, 41, 0), mid1: new THREE.Vector3(-4, 44.5, -2), mid2: new THREE.Vector3(2, 42, 3), end: new THREE.Vector3(7, 45, 1), r: 0.4 },
+  ];
+  const vesselMat = new THREE.MeshBasicMaterial({
+    color: 0x8b1a1a,
+    transparent: true,
+    opacity: 0,
+  });
+  for (const v of vesselConfigs) {
+    const curve = new THREE.CatmullRomCurve3([v.start, v.mid1, v.mid2, v.end]);
+    const tubeGeo = new THREE.TubeGeometry(curve, 16, v.r, 6, false);
+    const mesh = new THREE.Mesh(tubeGeo, vesselMat.clone());
+    scene.add(mesh);
+    envMeshes.push({ mesh, targetOpacity: 0.25 });
+  }
+
+  // 4. Müller Glia Columns — thin translucent vertical supports spanning retinal layers
+  const mullerOffsets = [
+    { x: -5, z: 0.5 },
+    { x: 6, z: -0.3 },
+    { x: 0.5, z: 4 },
+  ];
+  for (const offset of mullerOffsets) {
+    const height = 19.5; // from ganglion layer (-20) to OLM (-0.5)
+    const geo = new THREE.CylinderGeometry(0.05, 0.05, height, 6);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x88bbaa,
+      transparent: true,
+      opacity: 0,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(offset.x, -0.5 - height / 2, offset.z);
+    scene.add(mesh);
+    envMeshes.push({ mesh, targetOpacity: 0.12 });
+  }
+
+  // 5. Ambient Retinal Particles — warm pink/amber points in a shell around the cell
+  const particleCount = 300;
+  const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+  const pinkAmber = [
+    new THREE.Color(0xeebb88),
+    new THREE.Color(0xddaa99),
+    new THREE.Color(0xcc9988),
+    new THREE.Color(0xbb8877),
+  ];
+  for (let i = 0; i < particleCount; i++) {
+    const r = 15 + Math.random() * 25;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) + 10; // center around cell
+    positions[i * 3 + 2] = r * Math.cos(phi);
+    const c = pinkAmber[Math.floor(Math.random() * pinkAmber.length)];
+    colors[i * 3] = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  const particleGeo = new THREE.BufferGeometry();
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const particleMat = new THREE.PointsMaterial({
+    size: 0.15,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0,
+    sizeAttenuation: true,
+    depthWrite: false,
+  });
+  const particles = new THREE.Points(particleGeo, particleMat);
+  scene.add(particles);
+  envMeshes.push({ mesh: particles, targetOpacity: 0.3 });
+}
+
+function updateRetinalEnvironment(time) {
+  if (envMeshes.length === 0) return;
+  const elapsed = time - lightSwitchTime;
+  const duration = 1.2;
+  if (elapsed > duration + 0.1 && lightOn) return; // already fully on
+  if (elapsed > duration + 0.1 && !lightOn) return; // already fully off
+  const t = Math.min(elapsed / duration, 1.0);
+  const eased = t * t * (3 - 2 * t); // smoothstep
+  for (const item of envMeshes) {
+    item.mesh.material.opacity = item.targetOpacity * (lightOn ? eased : (1 - eased));
+  }
+}
+
 function updateBackground(time) {
   if (!scene) return;
 
@@ -1498,11 +1645,11 @@ function updateBackground(time) {
   if (lightOn) {
     scene.background.copy(BG_DARK).lerp(BG_LIGHT, eased);
     scene.fog.color.copy(BG_DARK).lerp(BG_LIGHT, eased);
-    renderer.toneMappingExposure = 1.8 + eased * 1.2;
+    renderer.toneMappingExposure = 1.8 + eased * 1.7;
   } else {
     scene.background.copy(BG_LIGHT).lerp(BG_DARK, eased);
     scene.fog.color.copy(BG_LIGHT).lerp(BG_DARK, eased);
-    renderer.toneMappingExposure = 3.0 - eased * 1.2;
+    renderer.toneMappingExposure = 3.5 - eased * 1.7;
   }
 }
 
@@ -1526,6 +1673,7 @@ function animate() {
   updateGlutamate(time, delta);
   updateStatusUI();
   updateBackground(time);
+  updateRetinalEnvironment(time);
 
   // When light is ON, keep firing photons periodically
   if (lightOn && time - lastAutoPhotonTime > 5 && !photonActive && !cascadeActive) {
