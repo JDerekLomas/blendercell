@@ -39,7 +39,7 @@ let recoveryTimeout = null;
 let lightOn = false;
 let lightSwitchTime = 0;
 const BG_DARK = new THREE.Color(0x020208);
-const BG_LIGHT = new THREE.Color(0x1e1a30); // dim purple-grey, slightly warm
+const BG_LIGHT = new THREE.Color(0x2a1518); // warm dark red — retinal glow
 
 // Retinal environment
 let envMeshes = [];  // [{mesh, targetOpacity}] — all env elements to fade
@@ -1496,13 +1496,15 @@ function toggleLight() {
 function createRetinalEnvironment() {
   // 1. Visible light source orb — glowing sun below the ganglion layer
   //    Teaches inverted retina: light enters from below the photoreceptors
+  // Distant light orb far below — represents light focused by the lens,
+  // traveling up through the retina toward the photoreceptors
   const orbGroup = new THREE.Group();
-  orbGroup.position.set(0, -28, 0);
+  orbGroup.position.set(0, -65, 0);
 
-  // Core sphere — bright warm center
-  const coreGeo = new THREE.SphereGeometry(1.5, 16, 16);
+  // Core sphere — bright warm center, large but distant
+  const coreGeo = new THREE.SphereGeometry(5, 16, 16);
   const coreMat = new THREE.MeshBasicMaterial({
-    color: 0xffeebb,
+    color: 0xffeedd,
     transparent: true,
     opacity: 0,
     blending: THREE.AdditiveBlending,
@@ -1510,12 +1512,12 @@ function createRetinalEnvironment() {
   });
   const core = new THREE.Mesh(coreGeo, coreMat);
   orbGroup.add(core);
-  envMeshes.push({ mesh: core, targetOpacity: 0.9 });
+  envMeshes.push({ mesh: core, targetOpacity: 0.8 });
 
-  // Corona / halo — larger soft glow around the core
-  const haloGeo = new THREE.SphereGeometry(4, 16, 16);
+  // Corona / halo — large soft glow
+  const haloGeo = new THREE.SphereGeometry(14, 16, 16);
   const haloMat = new THREE.MeshBasicMaterial({
-    color: 0xffdd88,
+    color: 0xffcc77,
     transparent: true,
     opacity: 0,
     blending: THREE.AdditiveBlending,
@@ -1523,15 +1525,15 @@ function createRetinalEnvironment() {
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
   orbGroup.add(halo);
-  envMeshes.push({ mesh: halo, targetOpacity: 0.15 });
+  envMeshes.push({ mesh: halo, targetOpacity: 0.08 });
 
   scene.add(orbGroup);
 
   // PointLight co-located with orb — actually illuminates the cell from below
-  const orbLight = new THREE.PointLight(0xffe8c0, 0, 80);
-  orbLight.position.set(0, -28, 0);
+  const orbLight = new THREE.PointLight(0xffe8c0, 0, 120);
+  orbLight.position.set(0, -65, 0);
   scene.add(orbLight);
-  envMeshes.push({ mesh: orbLight, targetOpacity: 2.0, isLight: true });
+  envMeshes.push({ mesh: orbLight, targetOpacity: 2.5, isLight: true });
 
   // 2. Choroidal Blood Vessels — curved tubes above RPE (choriocapillaris)
   const vesselConfigs = [
