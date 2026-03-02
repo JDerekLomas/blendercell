@@ -849,9 +849,11 @@ function createNeighboringCells() {
   // RPE cell (top, above outer segment)
   const rpeGroup = new THREE.Group();
   const rpeMat = new THREE.MeshStandardMaterial({
-    color: 0x2a1a0a,
+    color: 0x3a2510,
+    emissive: 0x1a0f05,
+    emissiveIntensity: 0.2,
     transparent: true,
-    opacity: 0.4,
+    opacity: 0.6,
     roughness: 0.8,
   });
   const rpeSlab = new THREE.Mesh(
@@ -893,7 +895,7 @@ function createNeighboringCells() {
       new THREE.CylinderGeometry(0.9, 0.9, 49, 12, 1, true),
       ghostMat.clone()
     );
-    ghostRod.material.opacity = 0.08 + Math.random() * 0.04;
+    ghostRod.material.opacity = 0.15 + Math.random() * 0.05;
     ghostRod.position.set(xOffset, 14.5, 0); // center of span
     cellGroup.add(ghostRod);
   }
@@ -901,17 +903,17 @@ function createNeighboringCells() {
   // Bipolar cell (below synapse)
   const bipolarGroup = new THREE.Group();
   const bipolarMat = new THREE.MeshStandardMaterial({
-    color: 0x7788aa,
-    emissive: 0x334455,
-    emissiveIntensity: 0.15,
+    color: 0x8899bb,
+    emissive: 0x445566,
+    emissiveIntensity: 0.3,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.7,
     roughness: 0.4,
   });
 
   // Soma
   bipolarCellMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.6, 12, 8),
+    new THREE.SphereGeometry(0.8, 12, 8),
     bipolarMat
   );
   bipolarCellMesh.position.y = -12;
@@ -919,14 +921,19 @@ function createNeighboringCells() {
 
   // Dendrite reaching up into invagination
   bipolarDendrite = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.04, 2.8, 6),
+    new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
     bipolarMat.clone()
   );
-  bipolarDendrite.material.opacity = 0.4;
+  bipolarDendrite.material.opacity = 0.6;
   bipolarDendrite.position.y = -10.6; // spans from -12 to -9.2
   bipolarGroup.add(bipolarDendrite);
 
   cellGroup.add(bipolarGroup);
+
+  // Light to illuminate the synapse/glutamate region
+  const synapseLight = new THREE.PointLight(0xfbbf24, 0.8, 15);
+  synapseLight.position.set(1, -10, 2);
+  cellGroup.add(synapseLight);
 }
 
 // ============================================
@@ -934,13 +941,13 @@ function createNeighboringCells() {
 // ============================================
 
 function createGlutamateSystem() {
-  const geo = new THREE.SphereGeometry(0.04, 6, 4);
+  const geo = new THREE.SphereGeometry(0.08, 8, 6);
   const mat = new THREE.MeshStandardMaterial({
     color: COLORS.VESICLE,
     emissive: COLORS.VESICLE,
-    emissiveIntensity: 0.4,
+    emissiveIntensity: 0.7,
     transparent: true,
-    opacity: 0.9,
+    opacity: 1.0,
   });
 
   glutamateInstanced = new THREE.InstancedMesh(geo, mat, GLUTAMATE_COUNT);
