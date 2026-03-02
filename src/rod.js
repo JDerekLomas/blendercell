@@ -1494,73 +1494,46 @@ function toggleLight() {
 // ============================================
 
 function createRetinalEnvironment() {
-  // 0. Actual light source from below — warm directional light simulating
-  //    light entering from the ganglion cell side (inverted retina)
-  const retinalLight = new THREE.DirectionalLight(0xfff0d4, 0);
-  retinalLight.position.set(0, -30, 5); // from below
-  retinalLight.target.position.set(0, 10, 0); // aimed up at the cell
-  scene.add(retinalLight);
-  scene.add(retinalLight.target);
-  envMeshes.push({ mesh: retinalLight, targetOpacity: 1.8, isLight: true });
+  // 1. Visible light source orb — glowing sun below the ganglion layer
+  //    Teaches inverted retina: light enters from below the photoreceptors
+  const orbGroup = new THREE.Group();
+  orbGroup.position.set(0, -28, 0);
 
-  // Warm point light below to illuminate the lower retinal layers
-  const belowGlow = new THREE.PointLight(0xffe8c0, 0, 50);
-  belowGlow.position.set(0, -22, 0);
-  scene.add(belowGlow);
-  envMeshes.push({ mesh: belowGlow, targetOpacity: 1.2, isLight: true });
+  // Core sphere — bright warm center
+  const coreGeo = new THREE.SphereGeometry(1.5, 16, 16);
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: 0xffeebb,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  orbGroup.add(core);
+  envMeshes.push({ mesh: core, targetOpacity: 0.9 });
 
-  // 1. Light Rays from Below — visual beams showing light traveling up
-  //    from ganglion side through retinal layers toward photoreceptors
-  //    Rays span from Y=-25 (below ganglion layer) up through the cell
-  const rayPositions = [
-    { x: -1.5, z: 0.5, r: 0.35, h: 50, opacity: 0.08 },
-    { x: 1.2, z: -0.8, r: 0.4, h: 55, opacity: 0.07 },
-    { x: 0.3, z: 1.5, r: 0.3, h: 45, opacity: 0.1 },
-    { x: -0.8, z: -1.2, r: 0.5, h: 52, opacity: 0.06 },
-  ];
-  for (const ray of rayPositions) {
-    const geo = new THREE.CylinderGeometry(ray.r * 0.5, ray.r, ray.h, 8, 1, true);
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xfff8e1,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    // Center each ray so it spans from well below ganglion layer up toward outer segment
-    mesh.position.set(ray.x, -25 + ray.h / 2, ray.z);
-    scene.add(mesh);
-    envMeshes.push({ mesh, targetOpacity: ray.opacity });
-  }
+  // Corona / halo — larger soft glow around the core
+  const haloGeo = new THREE.SphereGeometry(4, 16, 16);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0xffdd88,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  orbGroup.add(halo);
+  envMeshes.push({ mesh: halo, targetOpacity: 0.15 });
 
-  // 2. Retinal Layer Bands — horizontal planes marking major layers
-  const layers = [
-    { name: 'Outer Limiting Membrane', y: -0.5, color: 0xd4a574, opacity: 0.08 },
-    { name: 'Outer Nuclear Layer', y: -4, color: 0x6b5b8a, opacity: 0.05 },
-    { name: 'Outer Plexiform Layer', y: -10, color: 0x5a8a7a, opacity: 0.06 },
-    { name: 'Inner Nuclear Layer', y: -14, color: 0x6b7b8a, opacity: 0.05 },
-    { name: 'Inner Plexiform Layer', y: -17, color: 0x8a7b6b, opacity: 0.05 },
-    { name: 'Ganglion Cell Layer', y: -20, color: 0x8a836b, opacity: 0.06 },
-  ];
-  for (const layer of layers) {
-    const geo = new THREE.PlaneGeometry(20, 20);
-    const mat = new THREE.MeshBasicMaterial({
-      color: layer.color,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = layer.y;
-    scene.add(mesh);
-    envMeshes.push({ mesh, targetOpacity: layer.opacity });
-  }
+  scene.add(orbGroup);
 
-  // 3. Choroidal Blood Vessels — curved tubes above RPE (choriocapillaris)
+  // PointLight co-located with orb — actually illuminates the cell from below
+  const orbLight = new THREE.PointLight(0xffe8c0, 0, 80);
+  orbLight.position.set(0, -28, 0);
+  scene.add(orbLight);
+  envMeshes.push({ mesh: orbLight, targetOpacity: 2.0, isLight: true });
+
+  // 2. Choroidal Blood Vessels — curved tubes above RPE (choriocapillaris)
   const vesselConfigs = [
     { start: new THREE.Vector3(-8, 42, -2), mid1: new THREE.Vector3(-3, 43, 1), mid2: new THREE.Vector3(3, 41.5, -1), end: new THREE.Vector3(8, 44, 2), r: 0.3 },
     { start: new THREE.Vector3(-6, 44, 3), mid1: new THREE.Vector3(-1, 42, 2), mid2: new THREE.Vector3(4, 43.5, 0), end: new THREE.Vector3(9, 42, -2), r: 0.25 },
@@ -1579,7 +1552,7 @@ function createRetinalEnvironment() {
     envMeshes.push({ mesh, targetOpacity: 0.25 });
   }
 
-  // 4. Müller Glia Columns — thin translucent vertical supports spanning retinal layers
+  // 3. Müller Glia Columns — thin translucent vertical supports spanning retinal layers
   const mullerOffsets = [
     { x: -5, z: 0.5 },
     { x: 6, z: -0.3 },
@@ -1598,43 +1571,6 @@ function createRetinalEnvironment() {
     scene.add(mesh);
     envMeshes.push({ mesh, targetOpacity: 0.12 });
   }
-
-  // 5. Ambient Retinal Particles — warm pink/amber points in a shell around the cell
-  const particleCount = 300;
-  const positions = new Float32Array(particleCount * 3);
-  const colors = new Float32Array(particleCount * 3);
-  const pinkAmber = [
-    new THREE.Color(0xeebb88),
-    new THREE.Color(0xddaa99),
-    new THREE.Color(0xcc9988),
-    new THREE.Color(0xbb8877),
-  ];
-  for (let i = 0; i < particleCount; i++) {
-    const r = 15 + Math.random() * 25;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) + 10; // center around cell
-    positions[i * 3 + 2] = r * Math.cos(phi);
-    const c = pinkAmber[Math.floor(Math.random() * pinkAmber.length)];
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-  }
-  const particleGeo = new THREE.BufferGeometry();
-  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  const particleMat = new THREE.PointsMaterial({
-    size: 0.15,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0,
-    sizeAttenuation: true,
-    depthWrite: false,
-  });
-  const particles = new THREE.Points(particleGeo, particleMat);
-  scene.add(particles);
-  envMeshes.push({ mesh: particles, targetOpacity: 0.3 });
 }
 
 function updateRetinalEnvironment(time) {
