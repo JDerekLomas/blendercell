@@ -85,9 +85,9 @@ const INFO_CONTENT = {
     function: "Synthesizes rhodopsin, membrane components, and other proteins for outer segment renewal."
   },
   "Nucleus": {
-    title: "Nucleus: Inverted Architecture",
-    description: "Rod nuclei have a remarkable inverted chromatin arrangement unique among vertebrate cells. Dense heterochromatin occupies the CENTER, while transcriptionally active euchromatin sits at the periphery. This inversion acts as a microlens, focusing light through the nuclear layer—an optical adaptation that improves photon capture in nocturnal animals.",
-    function: "Houses genetic material with inverted chromatin that acts as a biological microlens."
+    title: "Nucleus: Compact and Streamlined",
+    description: "Rod nuclei are remarkably compact with dense, tightly packed chromatin. In nocturnal mammals (mice, cats, rats), the chromatin is dramatically inverted—heterochromatin at the CENTER, euchromatin at the periphery—turning each nucleus into a tiny microlens that focuses light. Human rod nuclei use a conventional chromatin arrangement but are still among the most compact nuclei in the body, minimizing light scatter as photons pass through the outer nuclear layer.",
+    function: "Houses genetic material in a compact nucleus that minimizes light scatter in the retina."
   },
   "SynapticTerminal": {
     title: "Synaptic Spherule: Continuous Transmitter",
@@ -96,7 +96,7 @@ const INFO_CONTENT = {
   },
   "SynapticRibbon": {
     title: "Synaptic Ribbon: Vesicle Conveyor",
-    description: "The ribbon is an elongated, plate-like protein scaffold (mainly RIBEYE protein) that tethers synaptic vesicles like ornaments on a Christmas tree. Vesicles slide down the ribbon toward the active zone, ensuring a continuous supply for sustained release. This structure is found only in sensory neurons that must encode analog signals—rods, cones, and hair cells.",
+    description: "The ribbon is an elongated, plate-like protein scaffold (mainly RIBEYE protein) that tethers synaptic vesicles like ornaments on a Christmas tree. Vesicles slide down the ribbon toward the active zone, ensuring a continuous supply for sustained release. Ribbon synapses are found in cells that encode analog signals—photoreceptors, retinal bipolar cells, and inner ear hair cells.",
     function: "Organizes and delivers synaptic vesicles for sustained, graded neurotransmitter release."
   }
 };
