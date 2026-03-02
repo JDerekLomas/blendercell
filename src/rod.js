@@ -1494,15 +1494,28 @@ function toggleLight() {
 // ============================================
 
 function createRetinalEnvironment() {
-  // 1. Visible light source orb — glowing sun below the ganglion layer
-  //    Teaches inverted retina: light enters from below the photoreceptors
-  // Distant light orb far below — represents light focused by the lens,
-  // traveling up through the retina toward the photoreceptors
-  const orbGroup = new THREE.Group();
-  orbGroup.position.set(0, -65, 0);
+  // 1. Retinal tissue backdrop — large curved wall behind the cell
+  //    Like the RBC vessel walls, gives the cell something to sit in front of
+  const tissueGeo = new THREE.CylinderGeometry(18, 18, 70, 32, 1, true);
+  const tissueMat = new THREE.MeshPhysicalMaterial({
+    color: 0x8b5e5e,
+    roughness: 0.9,
+    metalness: 0.0,
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 0,
+  });
+  const tissue = new THREE.Mesh(tissueGeo, tissueMat);
+  tissue.position.y = 10; // center around the cell
+  scene.add(tissue);
+  envMeshes.push({ mesh: tissue, targetOpacity: 0.3 });
 
-  // Core sphere — bright warm center, large but distant
-  const coreGeo = new THREE.SphereGeometry(5, 16, 16);
+  // 2. Light source orb — visible glowing sphere below
+  //    Represents focused light entering from the ganglion/vitreous side
+  const orbGroup = new THREE.Group();
+  orbGroup.position.set(0, -35, 0);
+
+  const coreGeo = new THREE.SphereGeometry(3, 16, 16);
   const coreMat = new THREE.MeshBasicMaterial({
     color: 0xffeedd,
     transparent: true,
@@ -1512,10 +1525,9 @@ function createRetinalEnvironment() {
   });
   const core = new THREE.Mesh(coreGeo, coreMat);
   orbGroup.add(core);
-  envMeshes.push({ mesh: core, targetOpacity: 0.8 });
+  envMeshes.push({ mesh: core, targetOpacity: 0.9 });
 
-  // Corona / halo — large soft glow
-  const haloGeo = new THREE.SphereGeometry(14, 16, 16);
+  const haloGeo = new THREE.SphereGeometry(8, 16, 16);
   const haloMat = new THREE.MeshBasicMaterial({
     color: 0xffcc77,
     transparent: true,
@@ -1525,53 +1537,75 @@ function createRetinalEnvironment() {
   });
   const halo = new THREE.Mesh(haloGeo, haloMat);
   orbGroup.add(halo);
-  envMeshes.push({ mesh: halo, targetOpacity: 0.08 });
+  envMeshes.push({ mesh: halo, targetOpacity: 0.12 });
 
   scene.add(orbGroup);
 
-  // PointLight co-located with orb — actually illuminates the cell from below
-  const orbLight = new THREE.PointLight(0xffe8c0, 0, 150);
-  orbLight.position.set(0, -65, 0);
+  // PointLight from the orb — actually illuminates the cell from below
+  const orbLight = new THREE.PointLight(0xffe8c0, 0, 100);
+  orbLight.position.set(0, -35, 0);
   scene.add(orbLight);
-  envMeshes.push({ mesh: orbLight, targetOpacity: 4.0, isLight: true });
+  envMeshes.push({ mesh: orbLight, targetOpacity: 3.0, isLight: true });
 
-  // 2. Choroidal Blood Vessels — curved tubes above RPE (choriocapillaris)
+  // 3. Choroidal vessels above RPE — visible dark red tubes
   const vesselConfigs = [
-    { start: new THREE.Vector3(-8, 42, -2), mid1: new THREE.Vector3(-3, 43, 1), mid2: new THREE.Vector3(3, 41.5, -1), end: new THREE.Vector3(8, 44, 2), r: 0.3 },
-    { start: new THREE.Vector3(-6, 44, 3), mid1: new THREE.Vector3(-1, 42, 2), mid2: new THREE.Vector3(4, 43.5, 0), end: new THREE.Vector3(9, 42, -2), r: 0.25 },
-    { start: new THREE.Vector3(-9, 41, 0), mid1: new THREE.Vector3(-4, 44.5, -2), mid2: new THREE.Vector3(2, 42, 3), end: new THREE.Vector3(7, 45, 1), r: 0.4 },
+    { start: new THREE.Vector3(-8, 42, -2), mid1: new THREE.Vector3(-3, 43, 1), mid2: new THREE.Vector3(3, 41.5, -1), end: new THREE.Vector3(8, 44, 2), r: 0.4 },
+    { start: new THREE.Vector3(-6, 44, 3), mid1: new THREE.Vector3(-1, 42, 2), mid2: new THREE.Vector3(4, 43.5, 0), end: new THREE.Vector3(9, 42, -2), r: 0.35 },
+    { start: new THREE.Vector3(-9, 41, 0), mid1: new THREE.Vector3(-4, 44.5, -2), mid2: new THREE.Vector3(2, 42, 3), end: new THREE.Vector3(7, 45, 1), r: 0.5 },
   ];
-  const vesselMat = new THREE.MeshBasicMaterial({
-    color: 0x8b1a1a,
-    transparent: true,
-    opacity: 0,
-  });
   for (const v of vesselConfigs) {
     const curve = new THREE.CatmullRomCurve3([v.start, v.mid1, v.mid2, v.end]);
     const tubeGeo = new THREE.TubeGeometry(curve, 16, v.r, 6, false);
-    const mesh = new THREE.Mesh(tubeGeo, vesselMat.clone());
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xcc3333,
+      transparent: true,
+      opacity: 0,
+    });
+    const mesh = new THREE.Mesh(tubeGeo, mat);
     scene.add(mesh);
-    envMeshes.push({ mesh, targetOpacity: 0.25 });
+    envMeshes.push({ mesh, targetOpacity: 0.45 });
   }
 
-  // 3. Müller Glia Columns — thin translucent vertical supports spanning retinal layers
+  // 4. Müller glia — visible translucent columns framing the cell
   const mullerOffsets = [
     { x: -5, z: 0.5 },
     { x: 6, z: -0.3 },
     { x: 0.5, z: 4 },
   ];
   for (const offset of mullerOffsets) {
-    const height = 19.5; // from ganglion layer (-20) to OLM (-0.5)
-    const geo = new THREE.CylinderGeometry(0.05, 0.05, height, 6);
+    const height = 19.5;
+    const geo = new THREE.CylinderGeometry(0.08, 0.08, height, 6);
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x88bbaa,
+      color: 0xaaddcc,
       transparent: true,
       opacity: 0,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(offset.x, (-20 + -0.5) / 2, offset.z); // center between GCL and OLM
+    mesh.position.set(offset.x, (-20 + -0.5) / 2, offset.z);
     scene.add(mesh);
-    envMeshes.push({ mesh, targetOpacity: 0.12 });
+    envMeshes.push({ mesh, targetOpacity: 0.25 });
+  }
+
+  // 5. Key retinal layer bands — just 3, visible enough to read
+  const layers = [
+    { y: -10, color: 0x7a9a8a, label: 'OPL' },   // Outer Plexiform — where synapses are
+    { y: -15, color: 0x8a7b6b, label: 'INL' },   // Inner Nuclear — bipolar cells
+    { y: -20, color: 0x9a8a6b, label: 'GCL' },   // Ganglion Cell Layer
+  ];
+  for (const layer of layers) {
+    const geo = new THREE.PlaneGeometry(30, 30);
+    const mat = new THREE.MeshBasicMaterial({
+      color: layer.color,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = layer.y;
+    scene.add(mesh);
+    envMeshes.push({ mesh, targetOpacity: 0.15 });
   }
 }
 
@@ -1605,10 +1639,12 @@ function updateBackground(time) {
   if (lightOn) {
     scene.background.copy(BG_DARK).lerp(BG_LIGHT, eased);
     scene.fog.color.copy(BG_DARK).lerp(BG_LIGHT, eased);
+    scene.fog.density = 0.003 - eased * 0.002; // reduce fog to reveal environment
     renderer.toneMappingExposure = 1.8 + eased * 2.2;
   } else {
     scene.background.copy(BG_LIGHT).lerp(BG_DARK, eased);
     scene.fog.color.copy(BG_LIGHT).lerp(BG_DARK, eased);
+    scene.fog.density = 0.001 + eased * 0.002; // restore fog
     renderer.toneMappingExposure = 4.0 - eased * 2.2;
   }
 }
