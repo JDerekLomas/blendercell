@@ -39,7 +39,7 @@ let recoveryTimeout = null;
 let lightOn = false;
 let lightSwitchTime = 0;
 const BG_DARK = new THREE.Color(0x020208);
-const BG_LIGHT = new THREE.Color(0x2a1518); // warm dark red — retinal glow
+const BG_LIGHT = new THREE.Color(0x6b2020); // warm red — retinal glow, visible contrast
 
 // Retinal environment
 let envMeshes = [];  // [{mesh, targetOpacity}] — all env elements to fade
@@ -1530,10 +1530,10 @@ function createRetinalEnvironment() {
   scene.add(orbGroup);
 
   // PointLight co-located with orb — actually illuminates the cell from below
-  const orbLight = new THREE.PointLight(0xffe8c0, 0, 120);
+  const orbLight = new THREE.PointLight(0xffe8c0, 0, 150);
   orbLight.position.set(0, -65, 0);
   scene.add(orbLight);
-  envMeshes.push({ mesh: orbLight, targetOpacity: 2.5, isLight: true });
+  envMeshes.push({ mesh: orbLight, targetOpacity: 4.0, isLight: true });
 
   // 2. Choroidal Blood Vessels — curved tubes above RPE (choriocapillaris)
   const vesselConfigs = [
@@ -1605,11 +1605,11 @@ function updateBackground(time) {
   if (lightOn) {
     scene.background.copy(BG_DARK).lerp(BG_LIGHT, eased);
     scene.fog.color.copy(BG_DARK).lerp(BG_LIGHT, eased);
-    renderer.toneMappingExposure = 1.8 + eased * 1.7;
+    renderer.toneMappingExposure = 1.8 + eased * 2.2;
   } else {
     scene.background.copy(BG_LIGHT).lerp(BG_DARK, eased);
     scene.fog.color.copy(BG_LIGHT).lerp(BG_DARK, eased);
-    renderer.toneMappingExposure = 3.5 - eased * 1.7;
+    renderer.toneMappingExposure = 4.0 - eased * 2.2;
   }
 }
 
