@@ -721,7 +721,62 @@ function animate() {
     cellGroup.rotation.z = Math.cos(time * 0.12) * 0.015;
   }
 
+  // Update scale bar based on zoom level
+  updateScaleBar();
+
   renderer.render(scene, camera);
+}
+
+// ============================================
+// SCALE BAR
+// ============================================
+// Cell is ~2μm long. Body = capsule with length=8, radius=2.8 → total ~13.6 units = 2μm
+// So 1μm ≈ 6.8 units
+const UNITS_PER_MICRON = 6.8;
+
+function updateScaleBar() {
+  const scaleBar = document.getElementById('scale-bar');
+  const scaleValue = document.getElementById('scale-value');
+  if (!scaleBar || !scaleValue) return;
+
+  // Project a known world-space distance to screen pixels
+  const dist = camera.position.length();
+  const fovRad = camera.fov * Math.PI / 180;
+  const worldHeightVisible = 2 * dist * Math.tan(fovRad / 2);
+  const pixelsPerUnit = window.innerHeight / worldHeightVisible;
+
+  // Choose a nice scale bar size (target ~60-120px on screen)
+  const targetPx = 80;
+  const worldUnitsForTarget = targetPx / pixelsPerUnit;
+  const micronsForTarget = worldUnitsForTarget / UNITS_PER_MICRON;
+
+  // Snap to nice values in nm/μm
+  const niceValues = [
+    { val: 0.01, label: '10 nm' },
+    { val: 0.02, label: '20 nm' },
+    { val: 0.05, label: '50 nm' },
+    { val: 0.1, label: '100 nm' },
+    { val: 0.2, label: '200 nm' },
+    { val: 0.5, label: '500 nm' },
+    { val: 1, label: '1 μm' },
+    { val: 2, label: '2 μm' },
+    { val: 5, label: '5 μm' },
+    { val: 10, label: '10 μm' },
+  ];
+
+  let best = niceValues[0];
+  let bestDiff = Infinity;
+  for (const nv of niceValues) {
+    const diff = Math.abs(nv.val - micronsForTarget);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = nv;
+    }
+  }
+
+  const barPx = best.val * UNITS_PER_MICRON * pixelsPerUnit;
+  scaleBar.style.width = Math.round(barPx) + 'px';
+  scaleValue.textContent = best.label;
 }
 
 // ============================================
