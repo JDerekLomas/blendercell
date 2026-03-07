@@ -272,60 +272,50 @@ function createInnerMembrane() {
 function createNucleoid() {
   const group = new THREE.Group();
 
-  // Main mass - irregular blob using deformed sphere
-  const mainGeo = new THREE.SphereGeometry(1.6, 24, 16);
-  const positions = mainGeo.attributes.position;
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i);
-    const y = positions.getY(i);
-    const z = positions.getZ(i);
-    const noise = 0.15 * Math.sin(x * 3 + y * 2) * Math.cos(z * 4 + x);
-    positions.setX(i, x * 1.4 + noise);
-    positions.setY(i, y * 0.7 + noise * 0.5);
-    positions.setZ(i, z * 0.9 + noise * 0.3);
-  }
-  mainGeo.computeVertexNormals();
-
-  const mainMat = new THREE.MeshPhysicalMaterial({
-    color: COLORS.NUCLEOID,
-    transparent: true,
-    opacity: 0.6,
-    roughness: 0.4,
-    emissive: COLORS.NUCLEOID,
-    emissiveIntensity: 0.15,
-  });
-
-  const mainMesh = new THREE.Mesh(mainGeo, mainMat);
-  mainMesh.position.set(-0.3, 0, 0);
-  group.add(mainMesh);
-
-  // DNA loops - curved tubes radiating from nucleoid
-  const loopMat = new THREE.MeshStandardMaterial({
+  // No solid blob — nucleoid is tangled DNA fibers, not a membrane-bound structure
+  const fiberMat = new THREE.MeshStandardMaterial({
     color: 0x4080CC,
     emissive: 0x2050AA,
-    emissiveIntensity: 0.3,
+    emissiveIntensity: 0.35,
     transparent: true,
-    opacity: 0.7,
+    opacity: 0.8,
   });
 
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2;
-    const radius = 0.8 + Math.random() * 0.6;
+  // Dense tangled loops filling an irregular region
+  const loopCount = 25;
+  for (let i = 0; i < loopCount; i++) {
     const points = [];
-    const segments = 20;
+    const segments = 40;
+    // Each loop starts from a random point in the nucleoid region
+    const cx = -0.3 + (Math.random() - 0.5) * 1.5;
+    const cy = (Math.random() - 0.5) * 0.8;
+    const cz = (Math.random() - 0.5) * 0.8;
+    const loopRadius = 0.3 + Math.random() * 0.9;
+    const tiltX = Math.random() * Math.PI;
+    const tiltY = Math.random() * Math.PI;
+    const tiltZ = Math.random() * Math.PI;
+
     for (let j = 0; j <= segments; j++) {
-      const t = j / segments;
-      const a = angle + t * Math.PI * 0.8;
-      points.push(new THREE.Vector3(
-        Math.cos(a) * radius * (1 - t * 0.3) + (Math.random() - 0.5) * 0.2,
-        Math.sin(a) * radius * 0.5 * Math.sin(t * Math.PI),
-        Math.sin(a) * radius * (1 - t * 0.3) + (Math.random() - 0.5) * 0.2
-      ));
+      const t = (j / segments) * Math.PI * 2;
+      // Base circle
+      let x = Math.cos(t) * loopRadius;
+      let y = Math.sin(t) * loopRadius * (0.4 + Math.random() * 0.3);
+      let z = Math.sin(t * 1.5) * loopRadius * 0.3;
+      // Apply random tilt
+      const cosX = Math.cos(tiltX), sinX = Math.sin(tiltX);
+      const cosY = Math.cos(tiltY), sinY = Math.sin(tiltY);
+      let y2 = y * cosX - z * sinX;
+      let z2 = y * sinX + z * cosX;
+      let x2 = x * cosY + z2 * sinY;
+      let z3 = -x * sinY + z2 * cosY;
+      // Add wobble
+      x2 += Math.sin(t * 3 + i) * 0.08;
+      y2 += Math.cos(t * 2.5 + i * 0.7) * 0.06;
+      points.push(new THREE.Vector3(cx + x2, cy + y2, cz + z3));
     }
-    const curve = new THREE.CatmullRomCurve3(points);
-    const tubeGeo = new THREE.TubeGeometry(curve, 16, 0.04, 6, false);
-    const tube = new THREE.Mesh(tubeGeo, loopMat);
-    tube.position.set(-0.3, 0, 0);
+    const curve = new THREE.CatmullRomCurve3(points, true); // closed loops
+    const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.035, 5, true);
+    const tube = new THREE.Mesh(tubeGeo, fiberMat);
     group.add(tube);
   }
 
