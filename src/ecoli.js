@@ -641,20 +641,33 @@ function onClick(event) {
 
   const intersects = raycaster.intersectObjects(clickables, false);
 
-  if (intersects.length > 0) {
-    let hit = intersects[0].object;
-    // Walk up to find organelleName
-    let name = hit.userData.organelleName;
-    if (!name && hit.parent) {
-      name = hit.parent.userData.organelleName;
-      if (!name && hit.parent.parent) {
-        name = hit.parent.parent.userData.organelleName;
+  // Skip through transparent envelope layers to find internal structures
+  const ENVELOPE_NAMES = new Set(["OuterMembrane", "InnerMembrane", "Peptidoglycan"]);
+
+  let chosenName = null;
+  for (const hit of intersects) {
+    let obj = hit.object;
+    let name = obj.userData.organelleName;
+    if (!name && obj.parent) {
+      name = obj.parent.userData.organelleName;
+      if (!name && obj.parent.parent) {
+        name = obj.parent.parent.userData.organelleName;
       }
     }
+    if (!name || !INFO_CONTENT[name]) continue;
 
-    if (name && INFO_CONTENT[name]) {
-      showPopup(INFO_CONTENT[name]);
+    // Prefer non-envelope hits; fall back to envelope if nothing else
+    if (!ENVELOPE_NAMES.has(name)) {
+      chosenName = name;
+      break;
     }
+    if (!chosenName) {
+      chosenName = name; // keep as fallback
+    }
+  }
+
+  if (chosenName) {
+    showPopup(INFO_CONTENT[chosenName]);
   }
 }
 
