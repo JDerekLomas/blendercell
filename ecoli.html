@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E. coli - Gram-Negative Bacterium</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      background: #0a1a12;
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    /* Custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(40, 80, 60, 0.5);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(91, 168, 143, 0.5);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(91, 168, 143, 0.7);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes zoomIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    .animate-slide-up { animation: slideUp 0.7s ease-out; }
+    .animate-slide-down { animation: slideDown 0.7s ease-out; }
+    .animate-zoom-in { animation: zoomIn 0.5s ease-out; }
+    .animate-pulse-custom { animation: pulse 2s ease-in-out infinite; }
+
+    /* Glow effects */
+    .glow-green {
+      box-shadow: 0 0 50px rgba(91, 168, 143, 0.3);
+    }
+    .glow-button:hover {
+      box-shadow: 0 0 30px rgba(91, 168, 143, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-slate-950">
+  <div id="canvas-container"></div>
+
+  <!-- Intro Modal -->
+  <div id="intro-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-6">
+    <div class="max-w-2xl w-full bg-gradient-to-b from-emerald-950/80 to-slate-900 border border-emerald-500/30 rounded-3xl p-10 glow-green text-center animate-zoom-in">
+      <div class="mb-6 flex justify-center">
+        <div class="w-20 h-20 rounded-full bg-emerald-900/50 flex items-center justify-center border-2 border-emerald-500 animate-pulse">
+          <svg class="text-emerald-400 w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+        </div>
+      </div>
+      <h1 class="text-5xl font-bold text-white mb-2 tracking-tight">
+        Meet <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">E. coli</span>
+      </h1>
+      <h2 class="text-xl text-emerald-200/80 font-medium mb-8">Escherichia coli K-12</h2>
+
+      <p class="text-slate-300 text-lg leading-relaxed mb-10 max-w-lg mx-auto">
+        The most studied organism on Earth. This rod-shaped bacterium lives in your gut, powers biotechnology, and taught us the fundamentals of molecular biology.
+        <br><br>
+        <span class="text-emerald-400 font-semibold">Explore the elegant machinery of a prokaryotic cell.</span>
+      </p>
+
+      <button id="start-btn" class="group bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-lg font-bold px-10 py-4 rounded-full shadow-lg glow-button transition-all duration-300 flex items-center gap-3 mx-auto">
+        <svg class="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        Start Exploration
+      </button>
+    </div>
+  </div>
+
+  <!-- UI Overlay -->
+  <div id="ui-overlay" class="fixed inset-0 pointer-events-none z-10 flex flex-col p-6 hidden">
+
+    <!-- Top Header -->
+    <div class="pointer-events-auto flex justify-between items-start mb-auto animate-slide-down">
+      <div>
+        <h1 class="text-4xl font-light text-white tracking-wider drop-shadow-md">
+          <span class="font-bold text-emerald-400">E.</span> COLI
+        </h1>
+        <p class="text-emerald-200/70 text-sm mt-1">Gram-Negative Bacterium</p>
+      </div>
+
+      <div class="flex gap-2">
+        <a href="cells.html" class="bg-slate-900/80 border border-cyan-500/50 text-cyan-300 px-4 py-2 rounded-full text-sm hover:bg-cyan-600 hover:text-white transition-colors shadow-lg flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+          Cell Atlas
+        </a>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="w-full flex justify-between items-end relative animate-slide-up">
+      <!-- Left: Info Button -->
+      <div class="pointer-events-auto">
+        <button id="info-btn" class="group flex items-center gap-3 bg-slate-900/90 hover:bg-emerald-600 border border-emerald-500/50 hover:border-emerald-400 text-emerald-50 px-5 py-3 rounded-full shadow-lg transition-all duration-300 backdrop-blur-md">
+          <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-semibold tracking-wide hidden sm:inline">The Story</span>
+        </button>
+      </div>
+
+      <!-- Center: Hint -->
+      <div id="hint-container" class="pointer-events-none absolute left-1/2 bottom-0 transform -translate-x-1/2 transition-all duration-500">
+        <div class="bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl animate-pulse">
+          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+          </svg>
+          <span class="text-sm font-medium tracking-wide">Click structures to learn more</span>
+        </div>
+      </div>
+
+      <!-- Right: Zoom Controls -->
+      <div class="pointer-events-auto flex flex-col items-end gap-3">
+        <div class="flex gap-2">
+          <button id="zoom-in-btn" class="bg-slate-900/90 hover:bg-emerald-600 border border-emerald-500/50 hover:border-emerald-400 text-emerald-50 p-3 rounded-full shadow-lg transition-all duration-300 backdrop-blur-md">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/>
+            </svg>
+          </button>
+          <button id="zoom-out-btn" class="bg-slate-900/90 hover:bg-emerald-600 border border-emerald-500/50 hover:border-emerald-400 text-emerald-50 p-3 rounded-full shadow-lg transition-all duration-300 backdrop-blur-md">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"/>
+            </svg>
+          </button>
+        </div>
+        <div class="bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-300 px-4 py-2 rounded-lg text-xs flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          <span>Scroll to zoom | Drag to rotate</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scale Bar (bottom left) -->
+    <div class="pointer-events-auto absolute bottom-6 left-6 animate-slide-up" id="scale-bar-container">
+      <div class="bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-lg px-4 py-3">
+        <div class="flex items-center gap-3">
+          <div class="flex flex-col items-center">
+            <div id="scale-bar" class="h-0.5 bg-emerald-400 relative" style="width: 60px;">
+              <div class="absolute -left-0.5 -top-1 w-0.5 h-2.5 bg-emerald-400"></div>
+              <div class="absolute -right-0.5 -top-1 w-0.5 h-2.5 bg-emerald-400"></div>
+            </div>
+            <span id="scale-value" class="text-emerald-300 text-xs font-bold mt-1">1 μm</span>
+          </div>
+          <div class="border-l border-slate-600 pl-3">
+            <div class="text-slate-400 text-xs">Cell: ~2 x 0.8 μm</div>
+            <div class="text-slate-500 text-xs">Gram-negative rod</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Popup (for structure clicks) -->
+  <div id="info-popup" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-emerald-500/30 w-full max-w-lg rounded-2xl shadow-2xl animate-zoom-in overflow-hidden">
+      <div class="flex justify-between items-center p-5 border-b border-slate-800 bg-gradient-to-r from-emerald-950/50 to-slate-900">
+        <h3 id="popup-title" class="text-xl font-bold text-white">Structure Name</h3>
+        <button id="close-popup" class="text-slate-400 hover:text-white transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <p id="popup-description" class="text-slate-300 leading-relaxed">Description here</p>
+        <div class="bg-emerald-900/20 border border-emerald-500/20 rounded-lg p-4">
+          <div class="text-xs text-emerald-400 uppercase tracking-wider mb-1">Function</div>
+          <p id="popup-function" class="text-emerald-100 font-medium">Function here</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Modal (The Story) -->
+  <div id="info-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-emerald-500/30 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-zoom-in" style="max-height: 85vh;">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center p-6 border-b border-slate-800 bg-gradient-to-r from-emerald-950/50 to-slate-900">
+        <div class="flex items-center gap-3">
+          <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+          <h2 class="text-2xl font-bold text-white">The E. coli Story</h2>
+        </div>
+        <button id="close-info-btn" class="text-slate-400 hover:text-white transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-8 overflow-y-auto space-y-8 custom-scrollbar">
+        <!-- General Intro -->
+        <div class="bg-emerald-900/20 border border-emerald-500/20 rounded-xl p-6">
+          <h3 class="text-xl font-bold text-emerald-300 mb-2">Biology's Model Organism</h3>
+          <p class="text-slate-300 leading-relaxed mb-4">Escherichia coli is a Gram-negative, rod-shaped bacterium that normally lives peacefully in the human intestine. But its real fame comes from the laboratory: virtually everything we know about gene regulation, DNA replication, and recombinant DNA technology was first worked out in E. coli.</p>
+          <p class="text-emerald-100 font-medium italic">E. coli divides every 20 minutes under ideal conditions. A single cell could theoretically produce a mass greater than Earth in about 2 days.</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-slate-800/50 rounded-xl p-4 text-center border border-emerald-500/10">
+            <div class="text-3xl font-bold text-emerald-400">2 μm</div>
+            <div class="text-xs text-slate-400 mt-1">Cell length</div>
+          </div>
+          <div class="bg-slate-800/50 rounded-xl p-4 text-center border border-emerald-500/10">
+            <div class="text-3xl font-bold text-emerald-400">20 min</div>
+            <div class="text-xs text-slate-400 mt-1">Doubling time</div>
+          </div>
+          <div class="bg-slate-800/50 rounded-xl p-4 text-center border border-emerald-500/10">
+            <div class="text-3xl font-bold text-emerald-400">4,300</div>
+            <div class="text-xs text-slate-400 mt-1">Genes</div>
+          </div>
+          <div class="bg-slate-800/50 rounded-xl p-4 text-center border border-emerald-500/10">
+            <div class="text-3xl font-bold text-emerald-400">20,000</div>
+            <div class="text-xs text-slate-400 mt-1">Ribosomes</div>
+          </div>
+        </div>
+
+        <!-- Key Differences -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-bold text-white">Prokaryote vs. Eukaryote</h3>
+
+          <div class="bg-slate-800/30 border border-emerald-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <h4 class="text-emerald-300 font-bold">No Nucleus</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">Unlike your cells, E. coli has no nuclear membrane. Its DNA floats freely in the cytoplasm as a compacted "nucleoid." Transcription and translation happen simultaneously—ribosomes start translating mRNA while it's still being made.</p>
+          </div>
+
+          <div class="bg-slate-800/30 border border-emerald-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+              <h4 class="text-emerald-300 font-bold">No Organelles</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">No mitochondria, no ER, no Golgi. E. coli does everything at its plasma membrane—energy production, protein export, and sensing the environment. Simplicity is efficiency: fewer parts means faster reproduction.</p>
+          </div>
+
+          <div class="bg-slate-800/30 border border-emerald-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-teal-400"></div>
+              <h4 class="text-emerald-300 font-bold">Double Membrane</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">As a Gram-negative bacterium, E. coli has two membranes separated by the periplasmic space with a thin peptidoglycan layer. This architecture provides intrinsic resistance to many antibiotics and houses the LPS endotoxin.</p>
+          </div>
+        </div>
+
+        <!-- Key Structures -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-bold text-white">Key Structures</h3>
+
+          <div class="bg-slate-800/30 border border-blue-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+              <h4 class="text-blue-300 font-bold">Nucleoid & Plasmids</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">The single circular chromosome (4.6 Mbp) is supercoiled into the nucleoid. Separately, small circular plasmids carry bonus genes—often for antibiotic resistance. These can be transferred between bacteria, spreading resistance horizontally.</p>
+          </div>
+
+          <div class="bg-slate-800/30 border border-yellow-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <h4 class="text-yellow-300 font-bold">Flagellar Motor</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">Each flagellum is powered by one of the most remarkable molecular machines in nature—a rotary motor that spins at up to 18,000 RPM. It uses proton motive force (not ATP) and can reverse direction in milliseconds, enabling the run-and-tumble chemotaxis strategy.</p>
+          </div>
+
+          <div class="bg-slate-800/30 border border-amber-500/20 rounded-xl p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+              <h4 class="text-amber-300 font-bold">Ribosomes</h4>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">E. coli's 70S ribosomes are smaller than eukaryotic 80S ribosomes—a difference exploited by antibiotics like tetracycline and streptomycin. During fast growth, ~50,000 ribosomes occupy most of the cytoplasm, churning out proteins at 15-20 amino acids per second.</p>
+          </div>
+        </div>
+
+        <!-- Fun fact -->
+        <div class="bg-slate-800/50 rounded-xl p-5 border border-emerald-500/10">
+          <p class="text-slate-300 text-sm italic">"If you could line up all the E. coli in your gut end-to-end, they would stretch around the Earth about 2.5 times. Yet they weigh only about 100 grams—roughly the weight of a small apple."</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Modal handling
+    const introModal = document.getElementById('intro-modal');
+    const uiOverlay = document.getElementById('ui-overlay');
+    const startBtn = document.getElementById('start-btn');
+    const infoBtn = document.getElementById('info-btn');
+    const infoModal = document.getElementById('info-modal');
+    const closeInfoBtn = document.getElementById('close-info-btn');
+    const infoPopup = document.getElementById('info-popup');
+    const closePopup = document.getElementById('close-popup');
+
+    startBtn.addEventListener('click', () => {
+      introModal.classList.add('hidden');
+      uiOverlay.classList.remove('hidden');
+    });
+
+    infoBtn?.addEventListener('click', () => {
+      infoModal.classList.remove('hidden');
+    });
+
+    closeInfoBtn?.addEventListener('click', () => {
+      infoModal.classList.add('hidden');
+    });
+
+    closePopup?.addEventListener('click', () => {
+      infoPopup.classList.add('hidden');
+      infoPopup.style.display = 'none';
+    });
+
+    // Close popup on background click
+    infoPopup?.addEventListener('click', (e) => {
+      if (e.target === infoPopup) {
+        infoPopup.classList.add('hidden');
+        infoPopup.style.display = 'none';
+      }
+    });
+
+    // Zoom buttons
+    document.getElementById('zoom-in-btn')?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('zoom', { detail: 'in' }));
+    });
+    document.getElementById('zoom-out-btn')?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('zoom', { detail: 'out' }));
+    });
+  </script>
+  <script type="module" src="/src/ecoli.js"></script>
+</body>
+</html>
