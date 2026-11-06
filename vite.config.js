@@ -13,7 +13,6 @@ export default defineConfig({
         organelles: resolve(__dirname, 'organelles.html'),
         kinesin: resolve(__dirname, 'kinesin.html'),
         neuron: resolve(__dirname, 'neuron.html'),
-        blenderTest: resolve(__dirname, 'blender-test.html'),
         plasmodium: resolve(__dirname, 'plasmodium.html'),
         rod: resolve(__dirname, 'rod.html'),
         ecoli: resolve(__dirname, 'ecoli.html'),
