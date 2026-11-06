@@ -17,6 +17,7 @@ export default defineConfig({
         plasmodium: resolve(__dirname, 'plasmodium.html'),
         rod: resolve(__dirname, 'rod.html'),
         ecoli: resolve(__dirname, 'ecoli.html'),
+        keratinocyte: resolve(__dirname, 'keratinocyte.html'),
       },
     },
   },
